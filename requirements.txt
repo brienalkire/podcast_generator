@@ -1,0 +1,16 @@
+# Podcast generator dependencies.
+# Install with:  pip install -r requirements.txt
+#
+# Working on voxport at the same time? Install it editable from a sibling
+# checkout afterwards, which replaces the PyPI copy:
+#   pip install -e "../voxport[kokoro]"
+
+# Speech synthesis. The `kokoro` extra brings in Kokoro and torch (~2 GB).
+voxport[kokoro]>=0.5.0
+# Writes the audio files (voxport doesn't install it).
+soundfile>=0.13.1
+python-dotenv>=1.0.0
+
+# For mcp_server.py (using podcast_generator from Claude Desktop or another
+# MCP client). Not needed for the command line or the Podcast Watch app.
+mcp>=2.3,<3

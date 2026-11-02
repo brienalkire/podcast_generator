@@ -1,0 +1,29 @@
+# Generated audio output
+*.mp3
+*.wav
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Local environment
+.venv/
+venv/
+*.m4a
+
+# Real local config (folder locations) — copy .env.example instead.
+.env
+
+# Stray run logs
+*.log
+
+# Personal script drafts and their processed/failed archive — not toolkit
+# code. Real archiving now happens in the configured (usually cloud-synced)
+# folders instead of this repo; these local defaults stay gitignored too.
+/inputs
+/outputs
+/script_archive
+
+# Local model cache transfer bundles
+*.zip
+.generator.lock
