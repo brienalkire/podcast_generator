@@ -7,49 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+First public release, and the first on PyPI (`pip install podcast-generator`).
+
 ### Added
 
-- `scripts/podcast-watch.ps1` and a single "Podcast Watch" desktop
-  shortcut: one window to turn the `PodcastGeneratorWatch` task on/off,
-  choose whether opening the app turns the watch on, off, or leaves it
-  (`PODCAST_WATCH_ON_OPEN` in `.env`), and pick the inputs/outputs/archive
-  folders (saved to `.env`; "Use default" returns to the repo's folders).
-- Podcast Watch app: a **Set up watch** button that registers the
-  `PodcastGeneratorWatch` task when it doesn't exist yet (current user, no
-  admin rights, runs on battery too, uses `pythonw.exe` so no console window
-  flashes up), and a **Check every** setting for the interval.
-- Podcast Watch app: an **About** menu showing the version (read from
-  `VERSION`) and the author.
-- `mcp_server.py`: an MCP server so Claude Desktop or another MCP client can
-  list voices, queue a script (validated up front), start a conversion in
-  the background, check a podcast's status, list recent podcasts, and turn
-  the watch on or off. Adds `mcp>=2.3,<3` to `requirements.txt`.
-- `generator.py` takes a lock so only one conversion runs at a time on a
-  machine; a run that finds another in progress leaves the queue to it.
-  Under `pythonw.exe`, output goes to `generator.log` (rotated at 1 MB).
+- Packaged for PyPI as `podcast-generator`, with three commands:
+  `podcast-generator` (convert scripts; also `python -m podcast_generator`),
+  `podcast-generator-mcp` (the MCP server, with the `[mcp]` extra) and
+  `podcast-watch` (the Podcast Watch app; `podcast-watch --shortcut` makes
+  the desktop shortcut).
+- A home folder for settings and the default folders: `podcast_generator`
+  in Documents for a pip install, the repo for a source checkout, or
+  `PODCAST_GENERATOR_HOME`. The first batch run creates the inputs folder.
+- MCP server: Claude Desktop or another MCP client can list voices, queue a
+  script (validated up front), start a conversion in the background, check
+  a podcast's status, list recent podcasts, and turn the watch on or off.
+- Podcast Watch app (Windows): one window to set up the
+  `PodcastGeneratorWatch` scheduled task (current user, no admin rights,
+  `pythonw.exe` so no window flashes up), turn it on or off, set how often
+  it checks, choose what happens when the app opens
+  (`PODCAST_WATCH_ON_OPEN`), and pick the inputs/outputs/archive folders.
+  Its **About** menu shows the version and author.
+- Only one conversion runs at a time on a machine; a run that finds
+  another in progress leaves the queue to it. Under `pythonw.exe`, output
+  goes to `generator.log` (rotated at 1 MB).
+- Tests, GitHub Actions CI, and a tag-triggered workflow that publishes to
+  PyPI and creates the GitHub release.
+- MANUAL.md: sections on the Podcast Watch app, the home folder, offline
+  use, and troubleshooting the app, the watch and the MCP server.
 
 ### Changed
 
-- Depends on `voxport` (v0.3.0+), the renamed `vox_bridge` toolkit:
-  import, setup docs and error message updated. Reinstall it
-  (`pip uninstall vox_bridge`, then `pip install -e ../voxport`).
-- voxport now comes from PyPI: `requirements.txt` lists
-  `voxport[kokoro]>=0.5.0` (and `soundfile`, which voxport no longer
-  installs), so a side-by-side voxport checkout is no longer needed.
-  `generator.py` turns on voxport's progress logging (0.5.0 moved it from
-  `print()` to `logging`). Offline-cache docs now use `HF_HOME` in `.env`.
-- MANUAL.md: new "The Podcast Watch app" section with a screenshot
-  (`docs/images/podcast-watch.png`), an expanded scheduled-mode overview,
-  and troubleshooting entries for the app and the watch.
-- `instructions_creating_podcast_generator.md` brought up to date (v5.0):
-  `generator.py` instead of `tts_podcast.py`, `af_heart` default voice,
-  configurable folders, archiving and `failed/`, drop-folder mode with the
-  Podcast Watch app, `vox_bridge` setup, and the `hf_cache/` offline steps.
+- Speech synthesis comes from [`voxport`](https://pypi.org/project/voxport/)
+  0.5.0+ on PyPI (the renamed `vox_bridge`), with its `kokoro` extra. Its
+  progress messages (model loads, each segment) are shown through logging.
+- The code moved into the `podcast_generator` package. `generator.py` and
+  `mcp_server.py` at the repo root remain as thin wrappers, so scheduled
+  tasks and MCP configs made before this release keep working.
+- Offline use: point `HF_HOME` at a copied Hugging Face cache in `.env`,
+  instead of voxport's repo `hf_cache/` folder.
+- `instructions_creating_podcast_generator.md` brought up to date (v6.0).
 
 ### Removed
 
-- `scripts/watch-on.ps1` / `scripts/watch-off.ps1` and the two "Podcast
-  Watch - Turn ON/OFF" shortcuts, replaced by the app above.
+- `requirements.txt` (dependencies are in `pyproject.toml`) and `VERSION`
+  (the version lives in `podcast_generator/__init__.py`).
+- `scripts/watch-on.ps1` / `scripts/watch-off.ps1` and their two desktop
+  shortcuts, replaced by the Podcast Watch app.
 
 *Versions 0.1.0 to 0.2.1 predate this public repository, which starts
 from a fresh history, so they have no tags or releases here.*

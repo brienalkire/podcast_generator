@@ -1,6 +1,7 @@
 # Podcast Watch: a small control window for the folder-watch scheduled task
-# (see README.md, "Scheduled / drop folder mode"). Meant to be launched from
-# a desktop shortcut with a hidden console, not run interactively.
+# (see README.md, "Scheduled / drop folder mode"). Started by the
+# `podcast-watch` command (podcast_generator/watch.py), which passes the
+# parameters below; `podcast-watch --shortcut` makes a desktop shortcut.
 #
 # What it does:
 #   - sets up the PodcastGeneratorWatch scheduled task if it doesn't exist
@@ -8,31 +9,38 @@
 #   - turns that task on/off and changes how often it runs
 #   - optionally forces it on or off whenever the window opens
 #     (PODCAST_WATCH_ON_OPEN in .env: on | off; unset = leave it as it was)
-#   - picks the inputs/outputs/archive folders, saved to this repo's .env.
-#     A folder left at its default (the repo's own inputs/, outputs/,
-#     script_archive/) is removed from .env rather than written to it.
+#   - picks the inputs/outputs/archive folders, saved to the home folder's
+#     .env. A folder left at its default (the home folder's own inputs/,
+#     outputs/, script_archive/) is removed from .env rather than written.
 #
 # Only the keys it changes are rewritten; other .env lines and comments are kept.
+
+param(
+    # pythonw.exe of the Python environment podcast_generator is installed in.
+    [string]$PythonW,
+    # The home folder (podcast_generator/paths.py): .env and default folders.
+    [string]$HomeDir,
+    [string]$Version = "unknown"
+)
+
+# Run straight from a source checkout without parameters: use the repo.
+$RepoDir = Split-Path -Parent $PSScriptRoot
+if (-not $HomeDir) { $HomeDir = $RepoDir }
+if (-not $PythonW) { $PythonW = Join-Path $RepoDir ".venv\Scripts\pythonw.exe" }
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
 $TaskName = "PodcastGeneratorWatch"
-$RepoDir  = Split-Path -Parent $PSScriptRoot
-$EnvPath  = Join-Path $RepoDir ".env"
+$EnvPath  = Join-Path $HomeDir ".env"
 $OnOpenKey = "PODCAST_WATCH_ON_OPEN"
 
 $Author = "Brien Alkire"
 
-function Get-AppVersion {
-    $path = Join-Path $RepoDir "VERSION"
-    try { return (Get-Content -LiteralPath $path -TotalCount 1 -ErrorAction Stop).Trim() } catch { return "unknown" }
-}
-
 function Show-About {
     [System.Windows.Forms.MessageBox]::Show(
-        "Podcast Watch (podcast_generator)`n`nVersion $(Get-AppVersion)`nAuthor: $Author",
+        "Podcast Watch (podcast_generator)`n`nVersion $Version`nAuthor: $Author",
         "About Podcast Watch",
         [System.Windows.Forms.MessageBoxButtons]::OK,
         [System.Windows.Forms.MessageBoxIcon]::Information) | Out-Null
@@ -105,6 +113,7 @@ function Set-EnvValue([string]$key, $value) {
         $lines.Add("$key=$(Format-EnvValue $value)")
     }
     if ($isNew -and $null -eq $value) { return }
+    New-Item -ItemType Directory -Force -Path $HomeDir | Out-Null
     [System.IO.File]::WriteAllLines($EnvPath, $lines, (New-Object System.Text.UTF8Encoding $false))
 }
 
@@ -148,14 +157,14 @@ function New-WatchTrigger([int]$minutes) {
 # password needed, runs only while you're logged in. pythonw.exe means no
 # console window flashes up on each check (output goes to generator.log).
 function Register-Watch([int]$minutes) {
-    $pythonw = Join-Path $RepoDir ".venv\Scripts\pythonw.exe"
-    if (-not (Test-Path -LiteralPath $pythonw)) {
-        Show-Error ("Couldn't find this repo's Python environment:`n$pythonw`n`n" +
-            "Install podcast_generator first (README.md, Installation), then try again.")
+    if (-not (Test-Path -LiteralPath $PythonW)) {
+        Show-Error ("Couldn't find the Python environment podcast_generator is installed in:`n$PythonW`n`n" +
+            "Start this app with the podcast-watch command (README.md), then try again.")
         return
     }
     try {
-        $action = New-ScheduledTaskAction -Execute $pythonw -Argument "generator.py" -WorkingDirectory $RepoDir
+        New-Item -ItemType Directory -Force -Path $HomeDir | Out-Null
+        $action = New-ScheduledTaskAction -Execute $PythonW -Argument "-m podcast_generator" -WorkingDirectory $HomeDir
         $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries `
             -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew `
             -ExecutionTimeLimit (New-TimeSpan -Hours 12)
@@ -220,7 +229,7 @@ function Update-FolderRow($row) {
         $row.Reset.Enabled = $true
     } else {
         $row.Box.Text = $row.Default
-        $row.Caption.Text = "$($row.Label)  (default: in this repo)"
+        $row.Caption.Text = "$($row.Label)  (default)"
         $row.Reset.Enabled = $false
     }
 }
@@ -309,9 +318,9 @@ try {
     $form.Controls.Add($grpFolders)
 
     $folderDefs = @(
-        @{ Key = "PODCAST_INPUTS_DIR";  Label = "Inputs: drop .md scripts here";            Default = (Join-Path $RepoDir "inputs") },
-        @{ Key = "PODCAST_OUTPUTS_DIR"; Label = "Outputs: finished audio goes here";        Default = (Join-Path $RepoDir "outputs") },
-        @{ Key = "PODCAST_ARCHIVE_DIR"; Label = "Archive: converted (and failed) scripts";  Default = (Join-Path $RepoDir "script_archive") }
+        @{ Key = "PODCAST_INPUTS_DIR";  Label = "Inputs: drop .md scripts here";            Default = (Join-Path $HomeDir "inputs") },
+        @{ Key = "PODCAST_OUTPUTS_DIR"; Label = "Outputs: finished audio goes here";        Default = (Join-Path $HomeDir "outputs") },
+        @{ Key = "PODCAST_ARCHIVE_DIR"; Label = "Archive: converted (and failed) scripts";  Default = (Join-Path $HomeDir "script_archive") }
     )
 
     $i = 0

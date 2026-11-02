@@ -1,52 +1,80 @@
 # podcast_generator
 
 Converts markdown podcast scripts into spoken-word audio files, using
-[`voxport`](https://github.com/brienalkire/voxport)'s `KokoroDirectTTS` for local, offline-capable
-text-to-speech. No API key required.
+[`voxport`](https://github.com/brienalkire/voxport)'s `KokoroDirectTTS` for
+local, offline-capable text-to-speech. No API key, no per-use cost, and
+your scripts never leave your machine.
 
-This README is a quick start. See [MANUAL.md](MANUAL.md) for the full
-guide: script-writing conventions, complete CLI reference, the voice
-catalog, and troubleshooting.
+- **`podcast-generator`**: converts scripts from the command line.
+- **Drop-folder mode**: a Windows scheduled task converts whatever lands in
+  an inputs folder (cloud-synced, if you like), controlled from the small
+  **Podcast Watch** app (`podcast-watch`).
+- **`podcast-generator-mcp`**: an MCP server, so Claude Desktop or another
+  MCP client can write, queue and convert podcasts for you.
+
+This README is a quick start. See
+[MANUAL.md](https://github.com/brienalkire/podcast_generator/blob/main/MANUAL.md)
+for the full guide: script-writing conventions, complete CLI reference, the
+voice catalog, and troubleshooting.
 
 ## Installation
 
-Requires Python 3.10+ and Windows for the scheduled mode below (the CLI
-itself is plain Python).
+Requires Python 3.10+. The command line works anywhere Kokoro does; the
+Podcast Watch app and scheduled drop-folder mode are Windows-only.
+
+```
+pip install podcast-generator             # command line and Podcast Watch
+pip install "podcast-generator[mcp]"      # plus the MCP server
+```
+
+A virtual environment is recommended. This pulls in Kokoro and torch
+(about 2 GB) through `voxport[kokoro]`. Check the install:
+
+```
+podcast-generator --version
+```
+
+Not installed for you:
+
+- **ffmpeg**: needed for MP3 output unless your `soundfile`/libsndfile
+  build has native MP3 support. Put it on `PATH`. WAV output needs neither.
+- **Kokoro model weights and spaCy's `en_core_web_sm`**: downloaded
+  automatically on the first run. On a firewalled machine, see "Offline use"
+  in the manual.
+
+### From a source checkout
 
 ```
 git clone https://github.com/brienalkire/podcast_generator.git
 cd podcast_generator
 python -m venv .venv
-.venv\Scripts\activate          # Windows (bash: source .venv/Scripts/activate)
-pip install -r requirements.txt
+.venv\Scripts\activate          # Windows (bash: source .venv/bin/activate)
+pip install -e ".[mcp]" pytest
 ```
 
-This installs [`voxport`](https://pypi.org/project/voxport/) from PyPI with
-its `kokoro` extra (Kokoro and torch, about 2 GB), plus soundfile,
-python-dotenv and the MCP SDK. If you're also working on voxport itself,
-clone it next to this repo and run `pip install -e "../voxport[kokoro]"`
-afterwards to use your checkout instead.
+Working on voxport at the same time? Clone it next to this repo and run
+`pip install -e "../voxport[kokoro]"` afterwards.
 
-Check the install:
+## Where things live
 
-```
-python generator.py --version
-```
+Settings and the default folders live in one **home folder**:
 
-Not installed by this repo:
+| Install | Home folder |
+|---|---|
+| `pip install` | `podcast_generator` in your Documents folder |
+| Source checkout | the repo folder |
+| Either | `PODCAST_GENERATOR_HOME`, if you set that environment variable |
 
-- **ffmpeg**: needed for MP3 output unless your `soundfile`/libsndfile
-  build has native MP3 support. Put it on `PATH`. WAV output needs neither.
-- **Kokoro model weights and spaCy's `en_core_web_sm`**: downloaded
-  automatically on the first run. On a firewalled machine, see
-  "Running behind a corporate firewall" in
-  `instructions_creating_podcast_generator.md` (or `voxport`'s README) for
-  an offline Hugging Face cache, and run
-  `python -m spacy download en_core_web_sm` once where network access is
-  available.
+It holds `.env` (settings), `inputs/` (scripts waiting to be converted),
+`outputs/` (finished audio), `script_archive/` (converted scripts, and
+`failed/` for ones that didn't convert), and `generator.log`.
 
-Optionally, copy `.env.example` to `.env` to point the inputs/outputs/archive
-folders somewhere other than this repo (see "Folder configuration" below).
+The three folders can point anywhere. Use the Podcast Watch app, or set
+`PODCAST_INPUTS_DIR`, `PODCAST_OUTPUTS_DIR` and `PODCAST_ARCHIVE_DIR` in
+`.env` (see
+[`.env.example`](https://github.com/brienalkire/podcast_generator/blob/main/.env.example)).
+Pointing them at a cloud-synced folder (Sync.com, Dropbox, OneDrive) lets
+you drop a script in from any device and get the audio back the same way.
 
 ## Usage
 
@@ -77,24 +105,24 @@ That's all for this episode. Thanks for listening.
 
 Only the two paragraphs are spoken. An italic-only line after the prose
 starts ends the script, and everything after it is dropped. Keep those
-lines for trailing notes. See [MANUAL.md](MANUAL.md#writing-a-script) for
-the full rules.
+lines for trailing notes. See the
+[manual](https://github.com/brienalkire/podcast_generator/blob/main/MANUAL.md#writing-a-script)
+for the full rules.
 
 ### Running it
 
 ```
-python generator.py                                   # batch: every script in inputs/
-python generator.py --voice af_heart --speed 1.1      # batch, overriding voice and speed
-python generator.py my-script.md --format wav --output episode01.wav   # one file
+podcast-generator                                  # batch: every script in inputs/
+podcast-generator --voice af_heart --speed 1.1     # batch, overriding voice and speed
+podcast-generator my-script.md --format wav --output episode01.wav   # one file
 ```
 
 **Batch mode** (no file argument) converts every `.md` script in the inputs
-folder (create it first; the default is `inputs/` next to `generator.py`)
-and writes `<script-name>.mp3` to the outputs folder. Each script that
-converts successfully is moved into the archive folder, so re-running
-doesn't reprocess it. A script that fails moves to
-`<archive folder>/failed/` with a `.error.txt` note, so it isn't retried
-forever.
+folder and writes `<script-name>.mp3` to the outputs folder. The first run
+creates the inputs folder if it doesn't exist. Each script that converts
+successfully moves into the archive folder, so re-running doesn't
+reprocess it. A script that fails moves to `<archive folder>/failed/` with
+a `.error.txt` note, so it isn't retried forever.
 
 **Single-file mode** converts just the named file. `--output` only applies
 here.
@@ -109,129 +137,62 @@ here.
 | `--version` | Print the version and exit. |
 
 Voice precedence: `--voice`, then the script's `**Voice:**` line, then
-`af_heart`. The full voice catalog and troubleshooting are in
-[MANUAL.md](MANUAL.md).
+`af_heart`.
 
-## Folder configuration
+## Drop-folder mode and the Podcast Watch app (Windows)
 
-Defaults to `inputs/`, `outputs/`, `script_archive/` next to `generator.py`.
-Override them with the Podcast Watch app (see below), or by copying
-`.env.example` to `.env` and setting
-`PODCAST_INPUTS_DIR`, `PODCAST_OUTPUTS_DIR`, `PODCAST_ARCHIVE_DIR` — e.g.
-pointed at a folder mirrored by a cloud sync client (Sync.com, Dropbox,
-etc.), so a script dropped in remotely gets picked up and the finished
-audio syncs back out. **The same folders are used for both manual and
-scheduled runs** — there's no separate "watch mode" config.
+Running `podcast-generator` with no arguments on a schedule *is* watch
+mode: each run converts whatever is new in the inputs folder and archives
+it. A run with nothing to do exits almost immediately, and only one
+conversion runs at a time.
 
-A typical setup points `.env` at a Sync.com/Dropbox/OneDrive-mirrored
-folder (e.g. `C:\Users\yourname\Sync\podcasts\{inputs,outputs,
-script_archive}`) — drop a script into `inputs/` from any device your
-sync client runs on, and the finished audio syncs back out through
-`outputs/`.
+The **Podcast Watch** app sets this up and controls it:
 
-## Scheduled / "drop folder" mode
-
-There's no separate watcher script. Since a run archives what it processes,
-running the exact same batch command (`python generator.py`, no arguments)
-on a recurring schedule *is* watch mode — each run picks up whatever's new
-in the inputs folder since last time. An empty inputs folder exits 0
-almost immediately (job discovery happens before any heavy import, and an
-empty queue isn't treated as an error), so scheduling this every 10-15
-minutes costs essentially nothing when there's nothing to do.
-
-Only one conversion runs at a time: a run that starts while another is
-still converting leaves the queue to it and exits.
-
-The easiest way to set up the schedule is the **Set up watch** button in
-the Podcast Watch app (below). It registers a Windows scheduled task named
-`PodcastGeneratorWatch` for your user (no admin rights or stored password;
-runs while you're logged in, including on battery) that runs
-`.venv\Scripts\pythonw.exe generator.py` every 10 minutes, or whatever
-interval you pick. `pythonw.exe` means no console window flashes up; the
-output goes to `generator.log` in this folder instead.
-
-Equivalently, from PowerShell:
-
-```powershell
-$repo = 'C:\path\to\podcast_generator'
-$Action = New-ScheduledTaskAction -Execute "$repo\.venv\Scripts\pythonw.exe" -Argument 'generator.py' -WorkingDirectory $repo
-$Trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 10) -RepetitionDuration (New-TimeSpan -Days 3650)
-$Settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew
-Register-ScheduledTask -TaskName "PodcastGeneratorWatch" -Action $Action -Trigger $Trigger -Settings $Settings
+```
+podcast-watch               # open the app
+podcast-watch --shortcut    # add a "Podcast Watch" shortcut to your desktop
 ```
 
-To remove it: `Unregister-ScheduledTask -TaskName PodcastGeneratorWatch`.
-Manual `python generator.py` runs work whether the watch is on or off.
+- **Set up watch** registers a Windows scheduled task,
+  `PodcastGeneratorWatch`, for your user (no admin rights). It runs the
+  converter with `pythonw.exe`, so no window flashes up; output goes to
+  `generator.log` in the home folder.
+- **Turn ON / Turn OFF** enables or disables it; **Check every** sets the
+  interval (5 to 60 minutes).
+- **When this app opens** can always turn the watch on or off when you open
+  the window.
+- **Folders** picks the inputs, outputs and archive folders.
 
-### Turning it on/off — the Podcast Watch app
+![The Podcast Watch window](https://raw.githubusercontent.com/brienalkire/podcast_generator/main/docs/images/podcast-watch.png)
 
-A desktop shortcut, **"Podcast Watch"**, opens a small window
-(`scripts/podcast-watch.ps1`, no install needed) for day-to-day control,
-so you don't need PowerShell or Task Scheduler:
-
-- **Set up watch** (shown until the task exists) registers the
-  `PodcastGeneratorWatch` task, as described above.
-- **Turn ON / Turn OFF** enables or disables the task and shows its
-  current state. **Check every** changes how often it runs.
-- **When this app opens** can leave the watch as it was (the default), or
-  always turn it on or always turn it off when the window opens. This is
-  saved to `.env` as `PODCAST_WATCH_ON_OPEN=on|off`.
-- **Folders** shows the inputs, outputs, and archive folders in use.
-  **Browse...** picks a new one and saves it to `.env`. **Use default**
-  removes the override, so the repo's own `inputs/`, `outputs/`, and
-  `script_archive/` are used. **Open** opens the folder in Explorer and
-  creates it if it doesn't exist yet.
-
-The app only rewrites the keys it changes. Other `.env` lines and comments
-are kept. Folder changes take effect on the next run, scheduled or manual.
-See [MANUAL.md](MANUAL.md#the-podcast-watch-app) for a screenshot and
-more detail.
-
-To create the shortcut on another machine:
-
-```powershell
-$desktop = [Environment]::GetFolderPath("Desktop")
-$repo = "C:\path\to\podcast_generator"
-$wsh = New-Object -ComObject WScript.Shell
-$lnk = $wsh.CreateShortcut("$desktop\Podcast Watch.lnk")
-$lnk.TargetPath = "powershell.exe"
-$lnk.Arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$repo\scripts\podcast-watch.ps1`""
-$lnk.WorkingDirectory = $repo
-$lnk.IconLocation = "shell32.dll,238"
-$lnk.Save()
-```
+To remove the task: `Unregister-ScheduledTask -TaskName PodcastGeneratorWatch`
+in PowerShell. On macOS or Linux, schedule `podcast-generator` with cron or
+a similar tool instead.
 
 ## Using it from Claude Desktop (MCP)
 
-`mcp_server.py` is an [MCP](https://modelcontextprotocol.io) server, so an
-AI app such as Claude Desktop can make podcasts directly: write a script,
-queue it, convert it, and check on it, all from the chat. It runs locally
-and uses the same folders and `.env` as everything else.
-
-Add it to Claude Desktop's config (Settings → Developer → Edit Config,
-which opens `claude_desktop_config.json`), then restart Claude Desktop:
+`podcast-generator-mcp` is an [MCP](https://modelcontextprotocol.io) server,
+so an AI app such as Claude Desktop can make podcasts directly: write a
+script, queue it, convert it, and check on it, all from the chat. It runs
+locally and uses the same folders and `.env` as everything else. Install
+with the `[mcp]` extra, then add it to Claude Desktop's config (Settings →
+Developer → Edit Config) and restart Claude Desktop:
 
 ```json
 {
   "mcpServers": {
     "podcast-generator": {
-      "command": "C:\\path\\to\\podcast_generator\\.venv\\Scripts\\python.exe",
-      "args": ["C:\\path\\to\\podcast_generator\\mcp_server.py"]
+      "command": "C:\\path\\to\\.venv\\Scripts\\podcast-generator-mcp.exe"
     }
   }
 }
 ```
 
-Any other MCP client that can launch a local (stdio) server works the same
-way. See [MANUAL.md](MANUAL.md#using-it-from-claude-desktop-mcp) for the
-tools and an example conversation.
+Use the full path to the command in your environment, as above, since
+Claude Desktop doesn't see your virtual environment's `PATH`. See the
+[manual](https://github.com/brienalkire/podcast_generator/blob/main/MANUAL.md#using-it-from-claude-desktop-mcp)
+for the tools and an example conversation.
 
-## Notes
+## License
 
-- `instructions_creating_podcast_generator.md` is a narrative guide to
-  writing scripts and the end-to-end workflow (by hand or drop folder),
-  including script-writing style advice and corporate-firewall setup.
-- `inputs/`, `outputs/`, and `script_archive/` (the local defaults) are
-  gitignored — personal script drafts and generated audio aren't toolkit
-  code. The real, cloud-synced versions of these folders live outside this
-  repo entirely (see `.env`).
+MIT. See [LICENSE](https://github.com/brienalkire/podcast_generator/blob/main/LICENSE).

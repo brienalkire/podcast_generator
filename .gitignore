@@ -27,3 +27,9 @@ venv/
 # Local model cache transfer bundles
 *.zip
 .generator.lock
+
+# Packaging and test output
+/build/
+/dist/
+*.egg-info/
+.pytest_cache/

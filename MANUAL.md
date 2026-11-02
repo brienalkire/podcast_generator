@@ -7,7 +7,7 @@ from Claude Desktop (MCP), and troubleshooting.
 
 ## What this does
 
-`generator.py` takes a markdown file — a podcast script — and turns it
+`podcast-generator` takes a markdown file — a podcast script — and turns it
 into an audio file (MP3 or WAV) using [Kokoro](https://github.com/hexgrad/kokoro),
 a free, open-source text-to-speech model that runs entirely on your own
 machine via [`voxport`](https://github.com/brienalkire/voxport). No API key, no per-use cost, and
@@ -78,7 +78,7 @@ ones — e.g. a recurring segment that always uses a different voice.
 ## Full CLI reference
 
 ```
-python generator.py [input_script.md] [options]
+podcast-generator [input_script.md] [options]
 ```
 
 | Argument | Meaning |
@@ -90,6 +90,8 @@ python generator.py [input_script.md] [options]
 | `--format {mp3,wav}` | Output format (default `mp3`). |
 | `--output PATH` | Output file path. Only used in single-file mode; ignored in batch mode. |
 | `--version` | Print the installed version and exit. |
+
+`python -m podcast_generator` does the same thing.
 
 **Batch mode** (no positional argument): every `.md` file in the inputs
 folder is converted, written to the outputs folder as
@@ -122,17 +124,16 @@ for one recurring series) — try a few on a short script and pick what
 sounds right for your content. Kokoro supports more voices than this list
 (including other languages); this tool's `--voice` choices are
 deliberately limited to a curated English subset. If you need one outside
-this list, it'll need adding to `VOICE_CHOICES` in `generator.py`.
+this list, it'll need adding to `VOICE_CHOICES` in
+`podcast_generator/generator.py`.
 
-**Only voices already in the local Hugging Face cache (see voxport's
-README) work on a
-machine with `HF_HUB_OFFLINE=1` set.** On a machine with normal internet
-access, an uncached voice just downloads on first use — see voxport's
-README for the full offline/online story.
+**Only voices already in the local Hugging Face cache work on a machine
+with `HF_HUB_OFFLINE=1` set.** On a machine with normal internet access, an
+uncached voice just downloads on first use. See "Offline use" below.
 
 ## Scheduled ("drop folder") mode
 
-Running `python generator.py` on a schedule turns the inputs folder into a
+Running `podcast-generator` on a schedule turns the inputs folder into a
 drop folder. Each run converts whatever scripts have arrived since the last
 one and archives them, so nothing is processed twice. Point the folders at
 a cloud-synced location and you can drop a script in from any device and
@@ -140,9 +141,9 @@ get the finished audio back out, with no manual run.
 
 The schedule is a Windows scheduled task named `PodcastGeneratorWatch`
 that runs every few minutes. Create it once with the **Set up watch**
-button in the Podcast Watch app below (or by hand; see the README's
-[Scheduled / "drop folder" mode](README.md#scheduled--drop-folder-mode)
-section), then use the same app to control it.
+button in the Podcast Watch app below, then use the same app to control
+it. On macOS or Linux, schedule `podcast-generator` with cron or similar
+instead; the app and the scheduled task are Windows-only.
 
 Only one conversion runs at a time on a machine. If a run starts while
 another is still converting, for example a scheduled check during a long
@@ -150,10 +151,11 @@ script, it leaves the queue to the run already going and exits.
 
 ## The Podcast Watch app
 
-A small window for day-to-day control of the drop folder. Open it from the
-**Podcast Watch** shortcut on your desktop. It runs
-`scripts/podcast-watch.ps1` and needs nothing installed beyond Windows
-PowerShell. Instructions for creating the shortcut are in the README.
+A small window for day-to-day control of the drop folder. Open it with
+the `podcast-watch` command, or from a desktop shortcut that
+`podcast-watch --shortcut` creates for you. It's a Windows PowerShell
+script shipped inside the package (`podcast_generator/podcast-watch.ps1`),
+so there's nothing else to install.
 
 ![The Podcast Watch window, showing the watch turned on and the three folders](docs/images/podcast-watch.png)
 
@@ -165,7 +167,7 @@ The **About** menu at the top shows the version number and the author.
   it's on, the line underneath gives the check interval.
 - **Turn ON / Turn OFF** enables or disables the task. Turning it off only
   stops the schedule. Scripts already in the inputs folder stay there and
-  are converted when you turn it back on. Manual `python generator.py` runs
+  are converted when you turn it back on. Manual `podcast-generator` runs
   work either way.
 - **When this app opens** decides what happens to the watch each time you
   open the window:
@@ -189,12 +191,13 @@ the `PodcastGeneratorWatch` scheduled task and turns it on. The task:
 - runs under your own Windows account, with no admin rights or stored
   password, and only while you're logged in;
 - runs on battery power as well as when plugged in;
-- runs `.venv\Scripts\pythonw.exe generator.py`, so no console window
-  flashes up on each check. Each run's output is appended to
-  `generator.log` in the repo folder.
+- runs `pythonw.exe -m podcast_generator` from the Python environment you
+  started the app from, so no console window flashes up on each check.
+  Each run's output is appended to `generator.log` in the home folder
+  (see "Where settings are stored" below).
 
-The app expects the repo's Python environment in `.venv` (see the README's
-Installation section) and says so if it can't find it.
+If you later move or recreate that environment, delete the task and set it
+up again from the new one.
 
 To remove the task, run
 `Unregister-ScheduledTask -TaskName PodcastGeneratorWatch` in PowerShell
@@ -202,7 +205,7 @@ or delete it in Task Scheduler. The app then offers **Set up watch** again.
 
 ### Folders
 
-The three folders `generator.py` uses, whether it runs on the schedule or
+The three folders `podcast-generator` uses, whether it runs on the schedule or
 by hand:
 
 | Folder | What goes there |
@@ -217,16 +220,25 @@ For each folder:
 - **Open** opens the folder in File Explorer, creating it first if it
   doesn't exist yet.
 - **Use default** removes your choice from `.env`, so the folder goes back
-  to the one inside this repo (`inputs/`, `outputs/`, or
-  `script_archive/`). The label then reads "(default: in this repo)" and
-  the button is greyed out.
+  to the one inside the home folder (`inputs/`, `outputs/`, or
+  `script_archive/`). The label then reads "(default)" and the button is
+  greyed out.
 
 Changes take effect on the next run. There's nothing to restart.
 
 ### Where settings are stored
 
-Everything the app saves goes into `.env` in the repo folder, the same
-file `generator.py` reads:
+Settings live in `.env` in the **home folder**, which also holds the
+default `inputs/`, `outputs/` and `script_archive/` folders and
+`generator.log`. The home folder is:
+
+- `podcast_generator` in your Documents folder, for a `pip install`;
+- the repo folder, when running from a source checkout;
+- or whatever `PODCAST_GENERATOR_HOME` points to, if you set that
+  environment variable (it can't go in `.env` itself).
+
+Everything the app saves goes into that `.env`, the same file
+`podcast-generator` reads:
 
 ```
 PODCAST_INPUTS_DIR=C:\Users\yourname\Sync\podcasts\inputs
@@ -237,12 +249,12 @@ PODCAST_WATCH_ON_OPEN=on
 
 The app changes only these lines and leaves the rest of the file,
 including comments, as it was. You can still edit `.env` by hand;
-`.env.example` documents every setting. `.env` is not committed to git,
-so each machine keeps its own folders.
+[`.env.example`](.env.example) documents every setting. Each machine keeps
+its own `.env`.
 
 ## Using it from Claude Desktop (MCP)
 
-`mcp_server.py` lets an AI app that supports the
+`podcast-generator-mcp` lets an AI app that supports the
 [Model Context Protocol](https://modelcontextprotocol.io), such as Claude
 Desktop, make podcasts for you. You can ask, for example, "write a
 10-minute episode explaining how tides work, read by a British voice", and
@@ -252,18 +264,16 @@ MP3 is. Everything still runs on your machine, using the same folders and
 
 ### Setting it up
 
-1. Install the MCP package into the repo's environment (it's in
-   `requirements.txt`, so a normal install already includes it):
-   `pip install -r requirements.txt`.
+1. Install with the `mcp` extra: `pip install "podcast-generator[mcp]"`.
 2. In Claude Desktop, open Settings → Developer → Edit Config. Add this to
-   `claude_desktop_config.json`, with your own repo path:
+   `claude_desktop_config.json`, with the full path to the command in your
+   environment (Claude Desktop doesn't see a virtual environment's `PATH`):
 
    ```json
    {
      "mcpServers": {
        "podcast-generator": {
-         "command": "C:\\path\\to\\podcast_generator\\.venv\\Scripts\\python.exe",
-         "args": ["C:\\path\\to\\podcast_generator\\mcp_server.py"]
+         "command": "C:\\path\\to\\.venv\\Scripts\\podcast-generator-mcp.exe"
        }
      }
    }
@@ -275,7 +285,7 @@ MP3 is. Everything still runs on your machine, using the same folders and
    plug) menu in the chat box.
 
 Other MCP clients that can start a local (stdio) server use the same
-command and arguments.
+command.
 
 ### Tools
 
@@ -294,6 +304,29 @@ check. Otherwise the AI calls `generate_now`. Either way, it checks back
 with `podcast_status`. Output from conversions started this way goes to
 `generator.log`.
 
+## Offline use
+
+Kokoro downloads its model weights, and each voice pack (e.g.
+`af_heart.pt`), from Hugging Face the first time each is used. They're
+cached in Hugging Face's standard location (`~/.cache/huggingface`), or
+wherever `HF_HOME` points. To run on a machine that can't reach
+huggingface.co:
+
+1. On a machine with internet access, add `HF_HOME=<some folder>` to the
+   home folder's `.env`, then convert a short script once with each voice
+   you'll need. The model and those voices land in that folder.
+2. Copy the folder to the offline machine and add `HF_HOME=<where you put
+   it>` to that machine's `.env`.
+3. Add `HF_HUB_OFFLINE=1` to the offline machine's `.env`. Only cached
+   voices work there.
+4. Install spaCy's English model while you have a network connection,
+   since `HF_HUB_OFFLINE` doesn't cover it:
+   `python -m spacy download en_core_web_sm`.
+
+If the network is reachable but an SSL-inspecting corporate proxy breaks
+the downloads (`CERTIFICATE_VERIFY_FAILED`), `pip install pip-system-certs`
+often fixes it by trusting Windows' certificate store.
+
 ## Troubleshooting
 
 **Podcast Watch says "Watch not set up"**: The `PodcastGeneratorWatch`
@@ -302,15 +335,15 @@ scheduled task doesn't exist on this machine yet. Click **Set up watch**
 
 **"Could not set up the podcast watch"**: Windows refused to create the
 task, and the message gives Windows' reason. Some work computers block
-scheduled tasks for ordinary users; if so, use `python generator.py` by
+scheduled tasks for ordinary users; if so, run `podcast-generator` by
 hand or ask your IT department.
 
 **The podcast-generator tools don't appear in Claude Desktop**: Check that
-both paths in `claude_desktop_config.json` exist, that backslashes are
-doubled, and that you restarted Claude Desktop. Claude Desktop's MCP log
-(Settings → Developer) shows the server's startup errors. A common one is
-`No module named 'mcp'`, fixed by `pip install -r requirements.txt` in the
-repo's environment.
+the command path in `claude_desktop_config.json` exists, that backslashes
+are doubled, and that you restarted Claude Desktop. Claude Desktop's MCP
+log (Settings → Developer) shows the server's startup errors. A common one
+is "podcast-generator-mcp needs the MCP SDK", fixed by
+`pip install "podcast-generator[mcp]"` in that environment.
 
 **"Could not turn the podcast watch on/off"**: Windows refused to change
 the scheduled task, and the message gives Windows' reason. If the task was
@@ -322,7 +355,7 @@ happen (the app shows the interval), that the script ends in `.md`, and
 that it's in the inputs folder the app shows. If the script was picked up
 but failed, it's in the archive folder's `failed/` subfolder with a
 `.error.txt` note explaining why. Otherwise, look at the end of
-`generator.log` in the repo folder for the latest run's output.
+`generator.log` in the home folder for the latest run's output.
 
 **"Another conversion run is already in progress"**: Not an error. Only one
 conversion runs at a time; the run already going converts the queue. In
@@ -348,8 +381,7 @@ doesn't have native MP3 support and `ffmpeg` isn't on `PATH`. Either
 install `ffmpeg`, or use `--format wav` (needs neither).
 
 **First run on a new machine hangs or fails trying to reach the
-network** — See voxport's README: a fresh Python environment downloads
-a small spaCy model (`en_core_web_sm`) on first use, separately from the
+network** — A fresh Python environment downloads a small spaCy model (`en_core_web_sm`) on first use, separately from the
 Kokoro model itself. On a firewalled machine, run
 `python -m spacy download en_core_web_sm` ahead of time, while you still
 have a network connection somewhere.
