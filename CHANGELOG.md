@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-02
+
 First public release, and the first on PyPI (`pip install podcast-generator`).
 
 ### Added
@@ -54,6 +56,8 @@ First public release, and the first on PyPI (`pip install podcast-generator`).
   (the version lives in `podcast_generator/__init__.py`).
 - `scripts/watch-on.ps1` / `scripts/watch-off.ps1` and their two desktop
   shortcuts, replaced by the Podcast Watch app.
+
+## Earlier versions
 
 *Versions 0.1.0 to 0.2.1 predate this public repository, which starts
 from a fresh history, so they have no tags or releases here.*
@@ -138,4 +142,5 @@ from a fresh history, so they have no tags or releases here.*
   those repos' own changelogs, not here — this file covers only
   `podcast_generator`.
 
-[Unreleased]: https://github.com/brienalkire/podcast_generator/commits/main
+[Unreleased]: https://github.com/brienalkire/podcast_generator/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/brienalkire/podcast_generator/releases/tag/v0.3.0
