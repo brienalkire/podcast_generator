@@ -103,7 +103,7 @@ from a fresh history, so they have no tags or releases here.*
 ### Added
 
 - `generator.py`: rebuilt as a consumer of the shared
-  [`vox_bridge`](../vox_bridge) toolkit's `KokoroDirectTTS`, replacing the
+  `vox_bridge` (now [`voxport`](https://github.com/brienalkire/voxport)) toolkit's `KokoroDirectTTS`, replacing the
   original standalone `tts_podcast.py` (which called Kokoro directly).
   Behavior preserved: same CLI flags (`--voice`, `--speed`, `--format`,
   `--output`), same markdown stripping, same per-script `**Voice:**`
