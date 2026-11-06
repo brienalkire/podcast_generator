@@ -316,14 +316,15 @@ command.
 | `list_voices` | Lists the voices a script can use. |
 | `queue_podcast` | Saves a script to the inputs folder under a name you choose, optionally setting its voice. It checks the script first: an unknown voice, a script with nothing to speak, or a name that's already taken is reported straight away, not after a failed conversion. Returns the word count and an estimated length. |
 | `generate_now` | Starts converting everything queued, in the background, and returns at once. Does nothing if a conversion is already running. |
-| `podcast_status` | Reports whether a podcast is queued, converting, done (with the file path, size, and length), or failed (with the reason). |
+| `podcast_status` | Reports whether a podcast is queued, converting, done (with the file path, size, and length), or failed (with the reason). With `wait_seconds` (up to 50), it waits for a conversion to finish before answering, returning as soon as it's done or failed. |
 | `list_podcasts` | Shows the folders, whether the watch is on, what's queued, and recent audio and failures. |
 | `set_watch` | Turns the scheduled watch on or off. |
 
 Conversion never happens inside a tool call, because a long script takes
 minutes. If the watch is on, a queued script is picked up on the next
-check. Otherwise the AI calls `generate_now`. Either way, it checks back
-with `podcast_status`. Output from conversions started this way goes to
+check. Otherwise the AI calls `generate_now`. Either way, it follows the
+conversion with `podcast_status`, passing `wait_seconds` so each call
+waits up to 50 seconds instead of the AI needing a separate way to pause. Output from conversions started this way goes to
 `generator.log`.
 
 ## Offline use

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-11-05
+
+### Added
+
+- MCP `podcast_status` takes an optional `wait_seconds` (up to 50): it waits
+  for a queued or converting podcast to finish before answering, and
+  returns as soon as it's done or failed, or at once if waiting can't
+  change anything. AI clients no longer need their own way to pause
+  between checks (Claude Desktop was reaching for other tools to do it).
+
 ## [0.3.2] - 2026-11-05
 
 ### Fixed
@@ -167,7 +177,8 @@ from a fresh history, so they have no tags or releases here.*
   those repos' own changelogs, not here — this file covers only
   `podcast_generator`.
 
-[Unreleased]: https://github.com/brienalkire/podcast_generator/compare/v0.3.2...HEAD
+[Unreleased]: https://github.com/brienalkire/podcast_generator/compare/v0.3.3...HEAD
+[0.3.3]: https://github.com/brienalkire/podcast_generator/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/brienalkire/podcast_generator/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/brienalkire/podcast_generator/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/brienalkire/podcast_generator/releases/tag/v0.3.0

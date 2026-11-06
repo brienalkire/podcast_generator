@@ -18,6 +18,7 @@ path (Claude Desktop doesn't see a virtual environment's PATH).
 Never print to stdout here: stdout carries the MCP protocol.
 """
 
+import asyncio
 import glob
 import json
 import os
@@ -41,6 +42,11 @@ WATCH_TASK = "PodcastGeneratorWatch"
 WORDS_PER_MINUTE = 175  # Kokoro's pace at speed 1.0
 NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._-]{0,99}$")
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+# podcast_status(wait_seconds=...): the longest it waits in one call, kept
+# under the ~60 s an MCP client typically allows a tool call, and how often
+# it re-checks while waiting.
+MAX_WAIT_SECONDS = 50
+STATUS_POLL_SECONDS = 2
 
 # The converter process generate_now last started. It takes the run lock
 # only after Python starts up, so for its first second or two the lock alone
@@ -53,9 +59,11 @@ mcp = MCPServer(
     instructions=(
         "Turns markdown podcast scripts into spoken audio locally with Kokoro. "
         "Typical flow: write the script, call queue_podcast, then (unless the "
-        "folder watch is on) call generate_now, then poll podcast_status until "
-        "it reports 'done'. Conversion takes roughly a tenth of the audio's "
-        "length or more, so check back rather than waiting in one call. "
+        "folder watch is on) call generate_now, then call podcast_status with "
+        "wait_seconds=50, repeating while it reports 'converting', until it "
+        "reports 'done' or 'failed'. podcast_status does the waiting itself, "
+        "so no separate wait or sleep is needed. Conversion takes roughly a "
+        "tenth of the audio's length, plus about a minute for the first one. "
         "Script rules: '#' headers, '**Key:** value' lines, '---' rules and "
         "italic-only lines are not spoken; an italic-only line after the prose "
         "starts ends the script."
@@ -175,9 +183,10 @@ def _next_step_hint(watch: str) -> str:
         minutes = _watch_interval_minutes()
         every = f"every {minutes} minutes" if minutes else "regularly"
         return (f"The folder watch is on (checks {every}), so it will be "
-                "converted automatically. Use podcast_status to follow it.")
+                "converted automatically. Use podcast_status with "
+                "wait_seconds=50 to follow it.")
     return ("The folder watch is not on. Call generate_now to convert it, "
-            "then podcast_status to follow it.")
+            "then podcast_status with wait_seconds=50 to follow it.")
 
 
 # --------------------------------------------------------------- tools
@@ -263,7 +272,8 @@ def queue_podcast(name: str, script: str, voice: str | None = None,
 def generate_now() -> dict:
     """Start converting every queued script in the background.
 
-    Returns immediately. Use podcast_status to see when each one is done.
+    Returns immediately. Use podcast_status (with wait_seconds to wait for
+    it) to see when each one is done.
     Does nothing if a conversion is already running (it will take the
     whole queue).
     """
@@ -288,14 +298,8 @@ def generate_now() -> dict:
             "note": "The first script includes about a minute of model loading."}
 
 
-@mcp.tool()
-def podcast_status(name: str) -> dict:
-    """Report whether a podcast is queued, converting, done, or failed.
-
-    Args:
-        name: The name given to queue_podcast (without extension).
-    """
-    name = _check_name(name)
+def _status_once(name: str) -> dict:
+    """podcast_status's answer right now, without waiting."""
     running = _converting()
     queued_path = os.path.join(g.INPUT_DIR, name + ".md")
     if os.path.isfile(queued_path):
@@ -320,6 +324,44 @@ def podcast_status(name: str) -> dict:
         return {"status": "done", **_audio_info(newest_output)}
     return {"status": "not found",
             "detail": f"No queued script, audio, or failure note named '{name}'."}
+
+
+def _may_still_change(status: dict) -> bool:
+    """Whether waiting could change this status: converting, or queued with
+    the watch on (it'll be picked up). Queued with the watch off won't move
+    until someone calls generate_now."""
+    return status["status"] == "converting" or (
+        status["status"] == "queued" and status.get("watch") == "on")
+
+
+@mcp.tool()
+async def podcast_status(name: str, wait_seconds: int = 0) -> dict:
+    """Report whether a podcast is queued, converting, done, or failed.
+
+    Args:
+        name: The name given to queue_podcast (without extension).
+        wait_seconds: Wait up to this many seconds (max 50) for a queued or
+            converting podcast to finish before answering, instead of
+            answering at once. Use this to follow a conversion: call again
+            with wait_seconds=50 while the status is still "converting".
+            Returns early as soon as the status is final, or if waiting
+            can't change it (queued with the watch off: call generate_now).
+    """
+    name = _check_name(name)
+    wait_seconds = max(0, min(int(wait_seconds), MAX_WAIT_SECONDS))
+    loop = asyncio.get_running_loop()
+    start = loop.time()
+    while True:
+        # Off the event loop: the watch check runs PowerShell.
+        status = await asyncio.to_thread(_status_once, name)
+        waited = loop.time() - start
+        remaining = wait_seconds - waited
+        if remaining <= 0 or not _may_still_change(status):
+            break
+        await asyncio.sleep(min(STATUS_POLL_SECONDS, remaining))
+    if wait_seconds:
+        status["waited_seconds"] = round(waited)
+    return status
 
 
 @mcp.tool()
