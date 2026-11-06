@@ -45,7 +45,7 @@ jobs:
           fi
 
       # Base voxport only (no torch download); see ci.yml.
-      - run: python -m pip install voxport numpy soundfile python-dotenv platformdirs pytest build twine
+      - run: python -m pip install voxport numpy soundfile python-dotenv platformdirs "mcp>=2.3,<3" pytest build twine
       - run: python -m pip install --no-deps -e .
       - run: python -m pytest -rs
       - run: python -m build

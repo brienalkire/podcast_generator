@@ -31,7 +31,7 @@ classifiers = [
     "Topic :: Multimedia :: Sound/Audio :: Speech",
 ]
 dependencies = [
-    "voxport[kokoro]>=0.5.0",
+    "voxport[kokoro]>=0.5.1",
     "numpy>=2.0",
     "soundfile>=0.13.1",
     "python-dotenv>=1.0.0",
