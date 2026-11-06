@@ -264,25 +264,47 @@ MP3 is. Everything still runs on your machine, using the same folders and
 
 ### Setting it up
 
-1. Install with the `mcp` extra: `pip install "podcast-generator[mcp]"`.
-2. In Claude Desktop, open Settings → Developer → Edit Config. Add this to
-   `claude_desktop_config.json`, with the full path to the command in your
-   environment (Claude Desktop doesn't see a virtual environment's `PATH`):
+1. Install with the `mcp` extra, somewhere that won't move or get deleted.
+   A [uv](https://docs.astral.sh/uv/) or [pipx](https://pipx.pypa.io/) tool
+   install is the simplest:
+
+   ```
+   uv tool install "podcast-generator[mcp]"
+   ```
+
+   or `pipx install "podcast-generator[mcp]"`. Both put the commands in
+   `~/.local/bin` (`%USERPROFILE%\.local\bin` on Windows). A regular virtual
+   environment works too, as long as it stays where it is.
+2. Print the Claude Desktop config for that install:
+
+   ```
+   podcast-generator-mcp --config
+   ```
+
+   This prints an `mcpServers` entry with the command's full path, which
+   Claude Desktop needs because it doesn't see your shell's `PATH`. If
+   `PODCAST_GENERATOR_HOME` is set when you run it (see "Where things
+   live"), the entry passes it on too, since Claude Desktop doesn't see your
+   shell's environment variables either. Example output on Windows:
 
    ```json
    {
      "mcpServers": {
        "podcast-generator": {
-         "command": "C:\\path\\to\\.venv\\Scripts\\podcast-generator-mcp.exe"
+         "command": "C:\\Users\\you\\.local\\bin\\podcast-generator-mcp.exe"
        }
      }
    }
    ```
 
-   If the file already has an `mcpServers` section, add the
-   `"podcast-generator"` entry inside it.
-3. Restart Claude Desktop. The tools appear under the tools (hammer or
-   plug) menu in the chat box.
+3. In Claude Desktop, open Settings → Developer → Edit Config, which opens
+   `claude_desktop_config.json`. If the file has no `mcpServers` section,
+   add the printed one at the top level; if it has one, add the
+   `"podcast-generator"` entry inside it. Keep everything else in the file.
+4. Fully quit Claude Desktop (on Windows, right-click its system-tray icon
+   and choose Quit; closing the window isn't enough) and start it again.
+   podcast-generator then appears in the chat box's connectors (or tools)
+   menu.
 
 Other MCP clients that can start a local (stdio) server use the same
 command.
@@ -339,8 +361,10 @@ scheduled tasks for ordinary users; if so, run `podcast-generator` by
 hand or ask your IT department.
 
 **The podcast-generator tools don't appear in Claude Desktop**: Check that
-the command path in `claude_desktop_config.json` exists, that backslashes
-are doubled, and that you restarted Claude Desktop. Claude Desktop's MCP
+the command path in `claude_desktop_config.json` exists (rerun
+`podcast-generator-mcp --config` to get the current one), that backslashes
+are doubled, that the entry is inside `mcpServers`, and that you fully quit
+and restarted Claude Desktop. Claude Desktop's MCP
 log (Settings → Developer) shows the server's startup errors. A common one
 is "podcast-generator-mcp needs the MCP SDK", fixed by
 `pip install "podcast-generator[mcp]"` in that environment.

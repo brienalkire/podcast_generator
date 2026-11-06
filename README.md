@@ -174,22 +174,31 @@ a similar tool instead.
 `podcast-generator-mcp` is an [MCP](https://modelcontextprotocol.io) server,
 so an AI app such as Claude Desktop can make podcasts directly: write a
 script, queue it, convert it, and check on it, all from the chat. It runs
-locally and uses the same folders and `.env` as everything else. Install
-with the `[mcp]` extra, then add it to Claude Desktop's config (Settings →
-Developer → Edit Config) and restart Claude Desktop:
+locally and uses the same folders and `.env` as everything else.
 
-```json
-{
-  "mcpServers": {
-    "podcast-generator": {
-      "command": "C:\\path\\to\\.venv\\Scripts\\podcast-generator-mcp.exe"
-    }
-  }
-}
-```
+1. Install it somewhere that stays put. A [uv](https://docs.astral.sh/uv/)
+   or [pipx](https://pipx.pypa.io/) tool install works well:
 
-Use the full path to the command in your environment, as above, since
-Claude Desktop doesn't see your virtual environment's `PATH`. See the
+   ```
+   uv tool install "podcast-generator[mcp]"
+   ```
+
+   (`pipx install "podcast-generator[mcp]"` is the same. A virtual
+   environment works too, as long as you don't delete it.)
+2. Print the Claude Desktop config for that install:
+
+   ```
+   podcast-generator-mcp --config
+   ```
+
+   It gives the command's full path, which Claude Desktop needs because it
+   doesn't see your shell's `PATH`.
+3. In Claude Desktop, open Settings → Developer → Edit Config, merge that
+   `"podcast-generator"` entry into `mcpServers`, and fully quit and restart
+   Claude Desktop (on Windows, quit from the system tray). It then appears in
+   the chat box's connectors menu.
+
+See the
 [manual](https://github.com/brienalkire/podcast_generator/blob/main/MANUAL.md#using-it-from-claude-desktop-mcp)
 for the tools and an example conversation.
 

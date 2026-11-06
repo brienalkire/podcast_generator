@@ -11,23 +11,15 @@ always happens in a separate `python -m podcast_generator` process, never
 inside a tool call, because a long script takes minutes to synthesize.
 
 Needs the `mcp` extra: pip install "podcast-generator[mcp]". Run by an MCP
-client, not by hand. Claude Desktop config (claude_desktop_config.json):
-
-    {
-      "mcpServers": {
-        "podcast-generator": {
-          "command": "podcast-generator-mcp"
-        }
-      }
-    }
-
-(Use the command's full path, e.g. ...\\.venv\\Scripts\\podcast-generator-mcp.exe,
-if it isn't on the PATH Claude Desktop sees.)
+client, not by hand. `podcast-generator-mcp --config` prints the
+claude_desktop_config.json entry for this install, with the command's full
+path (Claude Desktop doesn't see a virtual environment's PATH).
 
 Never print to stdout here: stdout carries the MCP protocol.
 """
 
 import glob
+import json
 import os
 import re
 import subprocess
@@ -377,8 +369,47 @@ def set_watch(on: bool) -> dict:
     return {"watch": _watch_state(), "changed": True}
 
 
+def desktop_config(argv0: str | None = None) -> dict:
+    """The claude_desktop_config.json snippet that starts this install.
+
+    Uses the full path of the running command, since Claude Desktop doesn't
+    see a virtual environment's PATH, and passes PODCAST_GENERATOR_HOME
+    through if it's set, since Claude Desktop doesn't see the shell's
+    environment either.
+    """
+    argv0 = os.path.abspath(argv0 or sys.argv[0])
+    if argv0.lower().endswith(".py"):  # python -m podcast_generator.mcp_server
+        entry = {"command": sys.executable,
+                 "args": ["-m", "podcast_generator.mcp_server"]}
+    else:
+        if os.name == "nt" and not argv0.lower().endswith(".exe") \
+                and os.path.isfile(argv0 + ".exe"):
+            argv0 += ".exe"
+        entry = {"command": argv0}
+    home = os.environ.get("PODCAST_GENERATOR_HOME")
+    if home:
+        entry["env"] = {"PODCAST_GENERATOR_HOME": os.path.abspath(home)}
+    return {"mcpServers": {"podcast-generator": entry}}
+
+
+USAGE = """\
+usage: podcast-generator-mcp            run the MCP server (an MCP client starts this)
+       podcast-generator-mcp --config   print the Claude Desktop config for this install
+       podcast-generator-mcp --version"""
+
+
 def main():
     """Entry point for the `podcast-generator-mcp` command."""
+    args = sys.argv[1:]
+    if args == ["--config"]:
+        print(json.dumps(desktop_config(), indent=2))
+        return 0
+    if args == ["--version"]:
+        print(f"podcast-generator-mcp {g.__version__}")
+        return 0
+    if args:
+        print(USAGE, file=sys.stderr)
+        return 2
     mcp.run()
 
 

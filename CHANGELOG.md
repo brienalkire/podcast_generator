@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-05
+
+### Added
+
+- `podcast-generator-mcp --config` prints the Claude Desktop
+  (`claude_desktop_config.json`) entry for the current install, with the
+  command's full path and `PODCAST_GENERATOR_HOME` if set.
+  `podcast-generator-mcp --version` prints the version.
+
+### Changed
+
+- Claude Desktop setup in the README and manual now recommends a
+  `uv tool install` / `pipx install`, so the command path stays valid, and
+  uses `--config` instead of hand-written paths.
+
 ## [0.3.0] - 2026-11-02
 
 First public release, and the first on PyPI (`pip install podcast-generator`).
@@ -142,5 +157,6 @@ from a fresh history, so they have no tags or releases here.*
   those repos' own changelogs, not here — this file covers only
   `podcast_generator`.
 
-[Unreleased]: https://github.com/brienalkire/podcast_generator/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/brienalkire/podcast_generator/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/brienalkire/podcast_generator/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/brienalkire/podcast_generator/releases/tag/v0.3.0

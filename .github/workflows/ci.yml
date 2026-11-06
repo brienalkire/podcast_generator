@@ -24,7 +24,7 @@ jobs:
           python-version: ${{ matrix.python }}
       # Base voxport only: the tests never load Kokoro, and voxport[kokoro]
       # pulls in torch (~2 GB). --no-deps keeps pip from fetching it anyway.
-      - run: python -m pip install voxport numpy soundfile python-dotenv platformdirs pytest
+      - run: python -m pip install voxport numpy soundfile python-dotenv platformdirs "mcp>=2.3,<3" pytest
       - run: python -m pip install --no-deps -e .
       - run: python -m pytest -rs
 
