@@ -200,7 +200,8 @@ locally and uses the same folders and `.env` as everything else.
 
 See the
 [manual](https://github.com/brienalkire/podcast_generator/blob/main/MANUAL.md#using-it-from-claude-desktop-mcp)
-for the tools and an example conversation.
+for checking it's installed, example requests, the tools, and upgrading
+(quit Claude Desktop first).
 
 ## License
 

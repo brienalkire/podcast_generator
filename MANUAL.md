@@ -303,11 +303,76 @@ MP3 is. Everything still runs on your machine, using the same folders and
    `"podcast-generator"` entry inside it. Keep everything else in the file.
 4. Fully quit Claude Desktop (on Windows, right-click its system-tray icon
    and choose Quit; closing the window isn't enough) and start it again.
-   podcast-generator then appears in the chat box's connectors (or tools)
-   menu.
+   Claude Desktop reads the config only when it starts.
 
 Other MCP clients that can start a local (stdio) server use the same
 command.
+
+### Checking it's installed
+
+After restarting Claude Desktop:
+
+- **Settings → Developer** lists `podcast-generator`. It should say it's
+  running. If it says it failed, see "Troubleshooting" below.
+- **In a chat**, open the connectors (or tools) menu in the chat box, from
+  the `+` or tools button. `podcast-generator` is listed with its six tools,
+  and its switch should be on.
+- **A quick test**: start a new chat and ask
+
+  > Use podcast-generator to make a 1-minute podcast about why the sky is
+  > blue, using a British voice, and tell me where the MP3 is.
+
+  Claude should list the voices, queue a script, start the conversion, and
+  report an MP3 in your outputs folder within a minute or two.
+
+### Using it
+
+Ask for what you want in plain language. Claude writes the script and runs
+the tools. For example:
+
+- "Make a 10-minute episode explaining how tides work, read by a British
+  male voice. Call it science-ep01-tides."
+- "Turn these notes into a 5-minute podcast script, show me the script
+  first, then make the audio." (Then paste or attach the notes.)
+- "What voices can podcast-generator use?"
+- "What podcasts have I made recently? Did any fail?"
+- "Requeue science-ep01-tides with replace=true and generate it again."
+- "Turn the podcast watch on." (Windows, once the watch is set up.)
+
+What to expect:
+
+- **Approval prompts.** The first time Claude uses each tool, Claude
+  Desktop asks whether to allow it. Choose to always allow if you don't
+  want to be asked again.
+- **The first conversion is slower.** Loading the model takes about a
+  minute. On the very first run, Kokoro's model and voice and spaCy's
+  English model (`en_core_web_sm`) are also downloaded (see "Offline use"
+  if your network blocks that). After that, a script takes roughly a tenth
+  of its audio length to convert.
+- **Claude waits for you.** It follows the conversion with
+  `podcast_status` and tells you when the MP3 is ready, with its path,
+  size, and length. Long episodes take several checks. You can keep
+  chatting, or come back and ask "is science-ep01-tides done?"
+- **Where things go.** Scripts are saved to the inputs folder, audio to
+  the outputs folder, and converted scripts are moved to the archive (see
+  "Where things live"). Ask "where are my podcast folders?" to see the
+  paths. A script that fails goes to `script_archive/failed`, next to a
+  `.error.txt` file giving the reason.
+- **Names are unique.** Queuing a name that already has a script or audio
+  is refused unless you say to replace it.
+
+### Upgrading
+
+Quit Claude Desktop fully first, because it keeps `podcast-generator-mcp`
+running and Windows won't let the files be replaced while it's in use.
+Then:
+
+```
+uv tool upgrade podcast-generator
+```
+
+(or `pipx upgrade podcast-generator`), and start Claude Desktop again. The
+config doesn't change, since the command path stays the same.
 
 ### Tools
 
@@ -324,8 +389,9 @@ Conversion never happens inside a tool call, because a long script takes
 minutes. If the watch is on, a queued script is picked up on the next
 check. Otherwise the AI calls `generate_now`. Either way, it follows the
 conversion with `podcast_status`, passing `wait_seconds` so each call
-waits up to 50 seconds instead of the AI needing a separate way to pause. Output from conversions started this way goes to
-`generator.log`.
+waits up to 50 seconds instead of the AI needing a separate way to pause.
+Output from conversions started this way goes to `generator.log` in the
+home folder.
 
 ## Offline use
 
@@ -367,8 +433,32 @@ the command path in `claude_desktop_config.json` exists (rerun
 are doubled, that the entry is inside `mcpServers`, and that you fully quit
 and restarted Claude Desktop. Claude Desktop's MCP
 log (Settings → Developer) shows the server's startup errors. A common one
-is "podcast-generator-mcp needs the MCP SDK", fixed by
-`pip install "podcast-generator[mcp]"` in that environment.
+is "podcast-generator-mcp needs the MCP SDK", fixed by reinstalling with the
+extra: `uv tool install --force "podcast-generator[mcp]"` (or
+`pip install "podcast-generator[mcp]"` in that environment).
+
+**Claude Desktop won't quit, or has no tray icon**: Sometimes Quit leaves
+Claude Desktop running in the background with no window and no tray icon,
+so it never rereads its config. Check Task Manager for `Claude` processes
+and end them, or run this in PowerShell:
+
+```
+Get-Process claude | Where-Object Path -like '*WindowsApps*' | Stop-Process
+```
+
+(The `WindowsApps` filter keeps it from touching Claude Code, which also
+runs as `claude.exe`.) Then start Claude Desktop again.
+
+**podcast-generator shows as failed after an upgrade**: The upgrade ran
+while Claude Desktop was using the files, and was only partly applied.
+Quit Claude Desktop fully, run
+`uv tool install --force "podcast-generator[mcp]"`, and start it again.
+
+**"Can't find model 'en_core_web_sm'"**: spaCy's English model couldn't be
+installed on the first run. Versions before 0.3.2 had this problem under
+`uv tool install`, which has no pip; upgrade (see "Upgrading" above). On a
+network that blocks the download, see "Offline use". Then requeue the
+script from `script_archive/failed` with replace=true.
 
 **"Could not turn the podcast watch on/off"**: Windows refused to change
 the scheduled task, and the message gives Windows' reason. If the task was

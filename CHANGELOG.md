@@ -17,6 +17,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   change anything. AI clients no longer need their own way to pause
   between checks (Claude Desktop was reaching for other tools to do it).
 
+### Changed
+
+- Manual: the Claude Desktop section now covers checking the connector is
+  installed, using it (example requests and what to expect on the first
+  run), and upgrading, with troubleshooting for a Claude Desktop that won't
+  quit, a partly applied upgrade, and the `en_core_web_sm` error.
+
 ## [0.3.2] - 2026-11-05
 
 ### Fixed
