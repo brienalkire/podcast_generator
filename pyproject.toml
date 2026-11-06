@@ -36,6 +36,12 @@ dependencies = [
     "soundfile>=0.13.1",
     "python-dotenv>=1.0.0",
     "platformdirs>=4.0",
+    # Kokoro's text front end (misaki) downloads spaCy's en_core_web_sm on
+    # first use. spaCy installs it with this environment's pip if there is
+    # one; otherwise it falls back to a bare `uv pip install`, which can land
+    # in a different environment (e.g. under `uv tool install`, which has no
+    # pip), so the model is never found.
+    "pip",
 ]
 
 [project.optional-dependencies]

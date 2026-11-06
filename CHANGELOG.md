@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-11-05
+
+### Fixed
+
+- First conversion in an environment without pip (such as
+  `uv tool install`) failed with "Can't find model 'en_core_web_sm'":
+  spaCy fell back to a `uv pip install` that put the model in a different
+  environment. podcast-generator now depends on `pip`, so spaCy installs
+  the model where it's needed.
+
 ## [0.3.1] - 2026-11-05
 
 ### Added
@@ -157,6 +167,7 @@ from a fresh history, so they have no tags or releases here.*
   those repos' own changelogs, not here — this file covers only
   `podcast_generator`.
 
-[Unreleased]: https://github.com/brienalkire/podcast_generator/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/brienalkire/podcast_generator/compare/v0.3.2...HEAD
+[0.3.2]: https://github.com/brienalkire/podcast_generator/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/brienalkire/podcast_generator/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/brienalkire/podcast_generator/releases/tag/v0.3.0
