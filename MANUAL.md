@@ -412,9 +412,84 @@ huggingface.co:
    since `HF_HUB_OFFLINE` doesn't cover it:
    `python -m spacy download en_core_web_sm`.
 
-If the network is reachable but an SSL-inspecting corporate proxy breaks
-the downloads (`CERTIFICATE_VERIFY_FAILED`), `pip install pip-system-certs`
-often fixes it by trusting Windows' certificate store.
+### Behind a corporate firewall or proxy
+
+The first run downloads from three places: Kokoro's model and voices from
+Hugging Face (huggingface.co, plus its Xet CDN at addresses like
+`us.aws.cdn.hf.co`), and spaCy's English model from GitHub. Firewalls often
+break one of them. Each fix below is a line in the home folder's `.env`,
+which podcast_generator loads before anything is downloaded.
+
+- **`CERTIFICATE_VERIFY_FAILED`**: an SSL-inspecting proxy is replacing
+  certificates with your company's own. Point Python at your company's CA
+  certificate chain (a `.pem` file; your IT department can supply it):
+
+  ```
+  SSL_CERT_FILE=C:\path\to\corporate-ca-chain.pem
+  REQUESTS_CA_BUNDLE=C:\path\to\corporate-ca-chain.pem
+  ```
+
+  Alternatively, `pip install pip-system-certs` makes Python trust
+  Windows' certificate store, which usually already includes your
+  company's certificate.
+- **`403` from an address like `us.aws.cdn.hf.co` while downloading the
+  model**: the network blocks Hugging Face's Xet CDN. Have Hugging Face
+  use plain HTTP downloads from huggingface.co instead:
+
+  ```
+  HF_HUB_DISABLE_XET=1
+  ```
+
+- **"Can't find model 'en_core_web_sm'" because GitHub is blocked**:
+  spaCy downloads its model from GitHub. Hugging Face hosts a copy:
+  download
+  `https://huggingface.co/spacy/en_core_web_sm/resolve/main/en_core_web_sm-any-py3-none-any.whl`
+  and install it in the same environment with
+  `python -m pip install --no-deps en_core_web_sm-any-py3-none-any.whl`.
+  That copy is version 3.7.1, built for spaCy 3.7, so spaCy 3.8 may warn
+  that it's for an older version. It works with Kokoro despite the
+  warning. If your network allows GitHub, `python -m spacy download
+  en_core_web_sm` gets the matching version.
+
+## Managed or locked-down computers
+
+Some work computers run endpoint-security software that checks each new
+file or program, or IT policies that block new executables. A full install
+writes tens of thousands of files (torch alone is about 2 GB), which can
+mean a flood of approval prompts, or files that Python can't read
+afterwards ("Permission denied", or `torch\lib\c10.dll` failing to load).
+Two things help.
+
+**Reuse an environment that already has the heavy packages.** If a Python
+environment your IT already trusts has torch, kokoro, and spaCy (for
+example a conda/miniforge install), add just podcast_generator and voxport
+to it, without letting pip pull in or upgrade anything else:
+
+```
+python -m pip install --no-deps voxport podcast-generator
+python -m pip check
+```
+
+`pip check` lists anything still missing. podcast_generator itself needs
+`numpy` (1.26 or later; podcast_generator 0.3.5 and voxport 0.5.2 onward), `soundfile`, `python-dotenv` and `platformdirs`;
+voxport's Kokoro support needs `kokoro` and `torch`; the MCP server needs
+`mcp`. Install any that are missing the same way, one at a time, with
+`--no-deps`.
+
+**Use `python -m` instead of the command launchers.** If
+`podcast-generator.exe` gives "Permission denied" or is blocked as an
+unsigned program, run the same commands through Python, which is already
+trusted:
+
+| Command | Launcher-free equivalent |
+|---|---|
+| `podcast-generator` | `python -m podcast_generator` |
+| `podcast-watch` | `python -m podcast_generator.watch` |
+| `podcast-generator-mcp` | `python -m podcast_generator.mcp_server` |
+
+`python -m podcast_generator.mcp_server --config` prints a Claude Desktop
+config that starts the MCP server this way, using `python.exe` and `-m`
+instead of the launcher.
 
 ## Troubleshooting
 

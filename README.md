@@ -27,8 +27,11 @@ pip install podcast-generator             # command line and Podcast Watch
 pip install "podcast-generator[mcp]"      # plus the MCP server
 ```
 
-A virtual environment is recommended. This pulls in Kokoro and torch
-(about 2 GB) through `voxport[kokoro]`. Check the install:
+The PyPI name is `podcast-generator`, with a hyphen; the Python package
+is `podcast_generator`, with an underscore. A virtual environment is
+recommended. This pulls in Kokoro and torch (about 2 GB) through
+`voxport[kokoro]`. Torch's default build runs on the CPU, so no GPU or
+special torch install is needed. Check the install:
 
 ```
 podcast-generator --version
@@ -39,8 +42,17 @@ Not installed for you:
 - **ffmpeg**: needed for MP3 output unless your `soundfile`/libsndfile
   build has native MP3 support. Put it on `PATH`. WAV output needs neither.
 - **Kokoro model weights and spaCy's `en_core_web_sm`**: downloaded
-  automatically on the first run. On a firewalled machine, see "Offline use"
-  in the manual.
+  automatically on the first run.
+
+Behind a corporate firewall or proxy, or on a work computer that blocks
+new programs? The manual covers
+[firewalls and proxies](https://github.com/brienalkire/podcast_generator/blob/main/MANUAL.md#behind-a-corporate-firewall-or-proxy)
+(certificate errors, blocked downloads),
+[offline use](https://github.com/brienalkire/podcast_generator/blob/main/MANUAL.md#offline-use),
+and
+[managed computers](https://github.com/brienalkire/podcast_generator/blob/main/MANUAL.md#managed-or-locked-down-computers)
+(installing into an existing environment, and `python -m` instead of the
+`.exe` commands).
 
 ### From a source checkout
 

@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.5] - 2026-11-06
+
+### Changed
+
+- numpy 1.26 is accepted again (`numpy>=1.26`, was `>=2.0`), so
+  podcast-generator installs into conda/miniforge base environments that
+  still ship it. Nothing here needs numpy 2, and CI now also tests on 1.26.
+  Requires voxport 0.5.2, which relaxes its numpy floor the same way.
+
+### Added
+
+- Manual: "Behind a corporate firewall or proxy" (corporate CA
+  certificates via `SSL_CERT_FILE` / `REQUESTS_CA_BUNDLE`, a blocked
+  Hugging Face Xet CDN via `HF_HUB_DISABLE_XET=1`, and installing
+  `en_core_web_sm` from Hugging Face when GitHub is blocked), and "Managed
+  or locked-down computers" (adding podcast_generator to an existing
+  environment with `--no-deps`, and `python -m` equivalents for every
+  command when `.exe` launchers are blocked).
+- README: the PyPI name (`podcast-generator`) vs. the package name
+  (`podcast_generator`), that torch runs on the CPU with no GPU needed, and
+  links to the firewall, offline and managed-computer sections.
+
 ## [0.3.4] - 2026-11-05
 
 ### Changed
@@ -193,7 +215,8 @@ from a fresh history, so they have no tags or releases here.*
   those repos' own changelogs, not here — this file covers only
   `podcast_generator`.
 
-[Unreleased]: https://github.com/brienalkire/podcast_generator/compare/v0.3.4...HEAD
+[Unreleased]: https://github.com/brienalkire/podcast_generator/compare/v0.3.5...HEAD
+[0.3.5]: https://github.com/brienalkire/podcast_generator/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/brienalkire/podcast_generator/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/brienalkire/podcast_generator/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/brienalkire/podcast_generator/compare/v0.3.1...v0.3.2

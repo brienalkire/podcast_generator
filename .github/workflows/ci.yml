@@ -28,6 +28,21 @@ jobs:
       - run: python -m pip install --no-deps -e .
       - run: python -m pytest -rs
 
+  numpy1:
+    # numpy>=1.26 is allowed for conda/miniforge base environments; check it.
+    name: Test with numpy 1.26
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: python -m pip install "numpy==1.26.*" soundfile python-dotenv platformdirs "mcp>=2.3,<3" pytest
+      - run: python -m pip install --no-deps voxport
+      - run: python -m pip install --no-deps -e .
+      - run: python -c "import numpy; assert numpy.__version__.startswith('1.26'), numpy.__version__"
+      - run: python -m pytest -rs
+
   package:
     name: Build and check package
     runs-on: ubuntu-latest
