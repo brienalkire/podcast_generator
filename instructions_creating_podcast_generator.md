@@ -2,8 +2,8 @@
 
 **Author:** Brien Alkire  
 **Date Created:** 20260605  
-**Date Revised:** 20261101  
-**Version:** 6.0  
+**Date Revised:** 20261107  
+**Version:** 6.1  
 
 ---
 
@@ -236,7 +236,7 @@ Settings are saved to `.env` and take effect on the next run. Each scheduled run
 
 ## From Claude Desktop
 
-If you'd rather ask an AI to write and voice an episode for you, `podcast-generator-mcp` connects podcast_generator to Claude Desktop (or another MCP app). Claude can then queue a script, start the conversion, and tell you when the audio is ready, all from the chat. Setup is a few lines in Claude Desktop's config; see "Using it from Claude Desktop (MCP)" in `MANUAL.md`. The script-writing guidelines above apply just as much when Claude writes the script, so it's worth pointing Claude at this document.
+If you'd rather ask an AI to write and voice an episode for you, `podcast-generator-mcp` connects podcast_generator to Claude Desktop (or another MCP app). Claude can then queue a script, start the conversion, and tell you when the audio is ready, all from the chat. To set it up, install the tool with `uv tool install "podcast-generator[mcp]"` (or pipx), run `podcast-generator-mcp --config` to print the entry for Claude Desktop's config file, then fully quit and restart Claude Desktop. "Using it from Claude Desktop (MCP)" in `MANUAL.md` has the steps, how to check the connector is installed, example prompts, and how to upgrade. The script-writing guidelines above apply just as much when Claude writes the script, so it's worth pointing Claude at this document.
 
 ---
 
@@ -248,7 +248,7 @@ If you'd rather ask an AI to write and voice an episode for you, `podcast-genera
 - **For MP3 output:** a recent `soundfile`/libsndfile build with MP3 support (common in current versions), or `ffmpeg` on your PATH. The tool tries libsndfile first and falls back to ffmpeg automatically. WAV output needs neither.
 - **First run:** the Kokoro model weights (~330 MB), each voice pack, and spaCy's small English model (`en_core_web_sm`) are downloaded automatically. Later runs work offline.
 - **For drop folder mode:** Windows. The Podcast Watch app's Set up watch button creates the scheduled task.
-- **For use from Claude Desktop:** the `mcp` extra: `pip install "podcast-generator[mcp]"`
+- **For use from Claude Desktop:** the `mcp` extra, ideally installed as a tool: `uv tool install "podcast-generator[mcp]"`
 - A finalized markdown script following the format described above
 
 ---
@@ -281,7 +281,7 @@ Windows already trusts the corporate proxy's certificate (that's why your browse
 3. Set `HF_HUB_OFFLINE=1` on the work machine. Either add the line `HF_HUB_OFFLINE=1` to the home folder's `.env`, or set it permanently via System Properties → Environment Variables. This tells Hugging Face's client to use the local cache only, which also sidesteps the SSL issue. With it set, only voices already in the cache work.
 4. Install spaCy's English model while you still have a network connection somewhere, since `HF_HUB_OFFLINE` doesn't cover it: `python -m spacy download en_core_web_sm` (or copy a virtual environment where it's already installed).
 
-"Offline use" in `MANUAL.md` and `voxport`'s README have more detail.
+Other firewall problems, such as a blocked Hugging Face download CDN or a blocked GitHub (where spaCy's model normally comes from), are covered in "Behind a corporate firewall or proxy" in `MANUAL.md`. If the computer is managed and blocks new `.exe` files or installs, see "Managed or locked-down computers" there. "Offline use" in `MANUAL.md` and `voxport`'s README have more detail.
 
 ---
 
