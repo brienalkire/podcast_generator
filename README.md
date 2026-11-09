@@ -121,6 +121,12 @@ lines for trailing notes. See the
 [manual](https://github.com/brienalkire/podcast_generator/blob/main/MANUAL.md#writing-a-script)
 for the full rules.
 
+**Conversations with two or more speakers** work too. Add a line like
+`**Voices:** Maya=af_heart, Theo=bm_george` and start each spoken line with
+the speaker's name (`Maya: Welcome back.`). Each speaker is read in their
+own voice, with a short pause between turns. See
+[Two or more speakers](https://github.com/brienalkire/podcast_generator/blob/main/MANUAL.md#two-or-more-speakers-dialogue).
+
 ### Running it
 
 ```
@@ -141,7 +147,7 @@ here.
 
 | Option | Meaning |
 |---|---|
-| `--voice VOICE` | Kokoro voice for the whole run. Overrides a script's `**Voice:**` line. Default `af_heart`. |
+| `--voice VOICE` | Kokoro voice for the whole run. Overrides a script's `**Voice:**` line (in a dialogue, only the narrator's). Default `af_heart`. |
 | `--speed FLOAT` | Speaking rate (default `1.0`; `0.9` slower, `1.1` faster). |
 | `--format {mp3,wav}` | Output format (default `mp3`). |
 | `--output PATH` | Output file (single-file mode only). |

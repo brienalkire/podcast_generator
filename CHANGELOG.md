@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-09
+
+### Added
+
+- **Scripts with two or more speakers.** A `**Voices:**` line (e.g.
+  `**Voices:** Maya=af_heart, Theo=bm_george`) makes a script a dialogue:
+  lines starting with a speaker's name and a colon (`Maya:`, `**Maya:**`
+  or `**Maya**:`) are read in that speaker's voice, without the label, with
+  a 0.35 s pause between turns. Unlabelled paragraphs continue the last
+  speaker, and text before the first label uses the narrator voice.
+  Speakers listed without a voice get distinct ones automatically. Scripts
+  without a `**Voices:**` line are read exactly as before.
+- MCP: `queue_podcast` takes `voices` (speaker name to voice) to set the
+  `**Voices:**` line, reports the speakers and their voices, and warns when
+  a listed speaker has no lines. The server's instructions describe the
+  dialogue format.
+- MCP: `list_podcasts` reports the installed podcast-generator version,
+  so a client can say which version it's using.
+
+### Changed
+
+- A line that is entirely bold with no lowercase letters (e.g. `**INTRO**`,
+  `**MAIN CONTENT**`) is a section label and is no longer read aloud, in
+  any script.
+- `--voice` changes only the narrator in a dialogue script.
+
 ## [0.3.5] - 2026-11-06
 
 ### Changed
@@ -215,7 +241,8 @@ from a fresh history, so they have no tags or releases here.*
   those repos' own changelogs, not here — this file covers only
   `podcast_generator`.
 
-[Unreleased]: https://github.com/brienalkire/podcast_generator/compare/v0.3.5...HEAD
+[Unreleased]: https://github.com/brienalkire/podcast_generator/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/brienalkire/podcast_generator/compare/v0.3.5...v0.4.0
 [0.3.5]: https://github.com/brienalkire/podcast_generator/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/brienalkire/podcast_generator/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/brienalkire/podcast_generator/compare/v0.3.2...v0.3.3

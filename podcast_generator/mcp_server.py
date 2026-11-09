@@ -66,7 +66,10 @@ mcp = MCPServer(
         "tenth of the audio's length, plus about a minute for the first one. "
         "Script rules: '#' headers, '**Key:** value' lines, '---' rules and "
         "italic-only lines are not spoken; an italic-only line after the prose "
-        "starts ends the script."
+        "starts ends the script. For a conversation between two or more "
+        "speakers, start each line with the speaker's name and a colon "
+        "('Maya: ...') and pass queue_podcast a voices mapping, e.g. "
+        "{'Maya': 'af_heart', 'Theo': 'bm_george'}."
     ),
 )
 
@@ -87,10 +90,21 @@ def _check_name(name: str) -> str:
 
 def _set_voice_line(script: str, voice: str) -> str:
     """Set the script's **Voice:** line, replacing any existing one."""
+    return _set_meta_line(script, g.voice_meta_pattern, f"**Voice:** {voice}")
+
+
+def _set_voices_line(script: str, voices: dict[str, str]) -> str:
+    """Set the script's **Voices:** line (dialogue speakers), replacing any existing one."""
+    cast = ", ".join(f"{name}={voice}" if voice else name for name, voice in voices.items())
+    return _set_meta_line(script, g.voices_meta_pattern, f"**Voices:** {cast}")
+
+
+def _set_meta_line(script: str, pattern: re.Pattern, new_line: str) -> str:
+    """Replace the first line matching `pattern`, or insert `new_line` near the top."""
     lines = script.splitlines()
     for i, line in enumerate(lines):
-        if g.voice_meta_pattern.match(line):
-            lines[i] = f"**Voice:** {voice}"
+        if pattern.match(line):
+            lines[i] = new_line
             return "\n".join(lines) + "\n"
     # Insert after a leading '# Title' line if there is one, else at the top.
     insert_at = 0
@@ -99,7 +113,7 @@ def _set_voice_line(script: str, voice: str) -> str:
             if line.lstrip().startswith("# "):
                 insert_at = i + 1
             break
-    lines[insert_at:insert_at] = ["", f"**Voice:** {voice}", ""]
+    lines[insert_at:insert_at] = ["", new_line, ""]
     return "\n".join(lines).lstrip("\n") + "\n"
 
 
@@ -209,6 +223,7 @@ def list_voices() -> dict:
 
 @mcp.tool()
 def queue_podcast(name: str, script: str, voice: str | None = None,
+                  voices: dict[str, str] | None = None,
                   replace: bool = False) -> dict:
     """Save a markdown podcast script to the inputs folder, ready to convert.
 
@@ -216,11 +231,19 @@ def queue_podcast(name: str, script: str, voice: str | None = None,
         name: File name without extension, e.g. "myseries-ep01-introduction".
             The audio will be <name>.mp3 in the outputs folder.
         script: The full markdown script. Plain paragraphs are spoken;
-            '#' headers, '**Key:** value' lines, '---' rules and italic-only
-            lines are not. An italic-only line after the prose starts ends
-            the script, so never wrap a mid-script sentence entirely in *...*.
+            '#' headers, '**Key:** value' lines, bold-only labels like
+            '**INTRO**', '---' rules and italic-only lines are not. An
+            italic-only line after the prose starts ends the script, so never
+            wrap a mid-script sentence entirely in *...*. For a conversation,
+            start each speaker's line with their name and a colon
+            ("Maya: Welcome back.") and pass `voices`.
         voice: Optional Kokoro voice (see list_voices). Sets the script's
-            **Voice:** line. Default af_heart.
+            **Voice:** line. Default af_heart. In a dialogue it's only used
+            for text before the first speaker label.
+        voices: For a script with two or more speakers: each speaker's name
+            and Kokoro voice, e.g. {"Maya": "af_heart", "Theo": "bm_george"}.
+            Sets the script's **Voices:** line. An empty voice ("") picks a
+            distinct one automatically.
         replace: Overwrite a queued script or finished audio with this name.
     """
     name = _check_name(name)
@@ -228,12 +251,19 @@ def queue_podcast(name: str, script: str, voice: str | None = None,
         if voice not in g.VOICE_CHOICES:
             raise ToolError(f"unknown voice '{voice}'. Call list_voices for the options.")
         script = _set_voice_line(script, voice)
+    if voices:
+        for speaker, speaker_voice in voices.items():
+            if speaker_voice and speaker_voice not in g.VOICE_CHOICES:
+                raise ToolError(f"unknown voice '{speaker_voice}' for {speaker}. "
+                                "Call list_voices for the options.")
+        script = _set_voices_line(script, voices)
     try:
         chosen_voice = g.resolve_voice(script, None)
-    except ValueError as exc:  # an unknown **Voice:** line
+        speakers = g.resolve_speaker_voices(script)
+        spoken = g.spoken_text(script)
+    except ValueError as exc:  # an unknown voice or a malformed **Voices:** line
         raise ToolError(str(exc)) from exc
 
-    spoken = g.strip_markdown(script)
     words = len(spoken.split())
     if not words:
         raise ToolError(
@@ -258,9 +288,17 @@ def queue_podcast(name: str, script: str, voice: str | None = None,
     os.replace(partial, target)
 
     watch = _watch_state()
+    result = {"queued": target, "voice": chosen_voice}
+    if speakers:
+        result["speakers"] = speakers
+        heard = {speaker for speaker, _ in g.split_turns(script, speakers)}
+        unheard = [n for n in speakers if n not in heard]
+        if unheard:
+            result["warning"] = (
+                f"no lines start with {', '.join(n + ':' for n in unheard)}, so "
+                "they are never heard. Check the line labels match the speaker names.")
     return {
-        "queued": target,
-        "voice": chosen_voice,
+        **result,
         "spoken_words": words,
         "estimated_minutes": round(words / WORDS_PER_MINUTE, 1),
         "watch": watch,
@@ -366,7 +404,7 @@ async def podcast_status(name: str, wait_seconds: int = 0) -> dict:
 
 @mcp.tool()
 def list_podcasts(limit: int = 20) -> dict:
-    """Overview: folders, watch state, queued scripts, recent audio and failures.
+    """Overview: version, folders, watch state, queued scripts, recent audio and failures.
 
     Args:
         limit: Maximum number of recent audio files and failures to list.
@@ -380,6 +418,7 @@ def list_podcasts(limit: int = 20) -> dict:
                    for p in glob.glob(os.path.join(g.OUTPUT_DIR, f"*.{fmt}")))
     failures = newest(glob.glob(os.path.join(g.FAILED_DIR, "*.error.txt")))
     return {
+        "version": g.__version__,
         "folders": {"inputs": g.INPUT_DIR, "outputs": g.OUTPUT_DIR, "archive": g.ARCHIVE_DIR},
         "watch": _watch_state(),
         "converting_now": _converting(),

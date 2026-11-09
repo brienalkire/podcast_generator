@@ -242,29 +242,112 @@ def resolve_voice(raw_text, cli_voice):
     return DEFAULT_VOICE
 
 
-def strip_markdown(raw_text):
-    """Strip markdown formatting, metadata, and section labels from the script.
+# A dialogue script names its speakers, and optionally their voices, e.g.
+#   **Voices:** Maya=af_heart, Theo=bm_george
+# Lines starting "Maya:" (or "**Maya:**") are then spoken in Maya's voice.
+voices_meta_pattern = re.compile(r"^\s*\*\*\s*Voices\s*:\s*\*\*\s*(.*?)\s*$", re.IGNORECASE)
+SPEAKER_NAME_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9 .'_-]{0,39}$")
+# Voices given, in this order, to speakers listed without one. Alternating
+# accent and gender keeps neighbouring speakers easy to tell apart.
+DIALOGUE_VOICES = ["af_heart", "bm_george", "am_michael", "bf_emma",
+                   "am_echo", "bf_isabella", "af_bella", "bm_lewis"]
+# Silence between one speaker's turn and the next.
+TURN_PAUSE_SECONDS = 0.35
 
-    Returns clean prose suitable for text-to-speech: only the words that
-    should actually be spoken aloud.
+
+def parse_voices_metadata(raw_text):
+    """Return {speaker: voice or None} from a script's **Voices:** line.
+
+    Returns {} when there is no such line (a single-narrator script). Raises
+    ValueError for a malformed line or an unknown voice.
     """
-    lines = raw_text.splitlines()
-    cleaned_lines = []
+    for line in raw_text.splitlines():
+        match = voices_meta_pattern.match(line)
+        if match:
+            break
+    else:
+        return {}
 
+    speakers = {}
+    for item in match.group(1).split(","):
+        if not item.strip():
+            continue
+        name, _, voice = item.partition("=")
+        name, voice = name.strip(), voice.strip() or None
+        if not SPEAKER_NAME_PATTERN.match(name):
+            raise ValueError(
+                f"the **Voices:** line has an unusable speaker name '{name}'. "
+                f"Write it like: **Voices:** Maya=af_heart, Theo=bm_george"
+            )
+        if name.lower() in (known.lower() for known in speakers):
+            raise ValueError(f"the **Voices:** line names '{name}' twice.")
+        if voice and voice not in VOICE_CHOICES:
+            raise ValueError(
+                f"script gives {name} unknown voice '{voice}'. Valid voices: "
+                f"{', '.join(VOICE_CHOICES)}."
+            )
+        speakers[name] = voice
+    if not speakers:
+        raise ValueError(
+            "the **Voices:** line names no speakers. Write it like: "
+            "**Voices:** Maya=af_heart, Theo=bm_george"
+        )
+    return speakers
+
+
+def resolve_speaker_voices(raw_text):
+    """Return {speaker: voice} for a dialogue script, or {} for a single narrator.
+
+    Speakers listed without a voice get the next unused one from
+    DIALOGUE_VOICES. Raises ValueError like parse_voices_metadata().
+    """
+    speakers = parse_voices_metadata(raw_text)
+    unused = [v for v in DIALOGUE_VOICES if v not in speakers.values()]
+    resolved = {}
+    for index, (name, voice) in enumerate(speakers.items()):
+        if not voice:
+            voice = unused.pop(0) if unused else DIALOGUE_VOICES[index % len(DIALOGUE_VOICES)]
+        resolved[name] = voice
+    return resolved
+
+
+def _speaker_label_pattern(speakers):
+    """Match "Name: text", "**Name:** text" or "**Name**: text" for known names."""
+    names = "|".join(re.escape(n) for n in sorted(speakers, key=len, reverse=True))
+    return re.compile(
+        rf"^\s*(?:\*\*)?\s*(?P<name>{names})\s*(?:\*\*)?\s*:\s*(?:\*\*)?\s*(?P<text>.*)$",
+        re.IGNORECASE,
+    )
+
+
+def _spoken_lines(raw_text, speakers=()):
+    """Yield (speaker, line) for each line of the script that is spoken.
+
+    `speaker` is None for narration. With `speakers` (a dialogue script), a
+    line starting with a speaker's label switches to that speaker, and the
+    label itself is dropped; lines without a label continue the current
+    speaker. Blank lines are yielded as "" so paragraph breaks survive.
+    """
     # A metadata line looks like:  **Author:** Brien Alkire
     metadata_pattern = re.compile(r"^\s*\*\*[^*]+:\*\*")
     # A horizontal rule:  ---  or  ***  or  ___  (3 or more)
     hrule_pattern = re.compile(r"^\s*([-*_])\1{2,}\s*$")
     # A line that is entirely italic, e.g.  *End of script.*  (production note)
     italic_only_pattern = re.compile(r"^\s*\*[^*]+\*\s*$")
+    # A bold-only line with no lowercase letters, e.g.  **INTRO**  (a section
+    # label written in bold instead of as a header).
+    bold_label_pattern = re.compile(r"^\s*\*\*([^*a-z]+)\*\*\s*$")
+    label_pattern = _speaker_label_pattern(speakers) if speakers else None
+    canonical = {name.lower(): name for name in speakers}
+    speaker = None
     seen_prose = False
 
-    for line in lines:
+    for line in raw_text.splitlines():
         stripped = line.strip()
 
-        # Drop blank lines for now; paragraph breaks are reconstructed later.
+        # Keep blank lines for now; paragraph breaks are reconstructed later.
         if not stripped:
-            cleaned_lines.append("")
+            yield speaker, ""
             continue
 
         # An all-italic line is a production note. After the prose starts it
@@ -273,7 +356,7 @@ def strip_markdown(raw_text):
         # just skipped (otherwise the whole script would come out empty).
         if italic_only_pattern.match(stripped):
             if seen_prose:
-                break
+                return
             continue
 
         # Drop markdown headers (#, ##, ###, ...). In these scripts the
@@ -282,20 +365,32 @@ def strip_markdown(raw_text):
         if stripped.startswith("#"):
             continue
 
-        # Drop horizontal rules.
-        if hrule_pattern.match(stripped):
+        # Drop horizontal rules and bold section labels.
+        if hrule_pattern.match(stripped) or bold_label_pattern.match(stripped):
             continue
+
+        # A speaker's label. Checked before metadata, since "**Maya:** Hi"
+        # looks like a metadata line too.
+        if label_pattern:
+            match = label_pattern.match(line)
+            if match:
+                speaker = canonical[match.group("name").lower()]
+                if match.group("text").strip():
+                    yield speaker, match.group("text")
+                    seen_prose = True
+                continue
 
         # Drop metadata key/value lines (Author, Date, Version, Voice, etc.).
         if metadata_pattern.match(stripped):
             continue
 
-        cleaned_lines.append(line)
+        yield speaker, line
         seen_prose = True
 
-    text = "\n".join(cleaned_lines)
 
-    # Strip inline markdown formatting from the remaining prose.
+def _clean_inline(text):
+    """Strip inline markdown from spoken lines and tidy the blank lines."""
+    # Bold + italic markers.
     # Bold + italic markers.
     text = re.sub(r"\*\*([^*]+)\*\*", r"\1", text)   # **bold**
     text = re.sub(r"__([^_]+)__", r"\1", text)         # __bold__
@@ -309,6 +404,40 @@ def strip_markdown(raw_text):
     # Collapse runs of blank lines into a single blank line, and trim.
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
+
+
+def strip_markdown(raw_text, speakers=()):
+    """Strip markdown formatting, metadata, and section labels from the script.
+
+    Returns clean prose suitable for text-to-speech: only the words that
+    should actually be spoken aloud. Pass a dialogue script's `speakers`
+    to keep its labelled lines (without the labels).
+    """
+    return _clean_inline("\n".join(line for _, line in _spoken_lines(raw_text, speakers)))
+
+
+def split_turns(raw_text, speakers):
+    """Split a dialogue script into [(speaker or None, spoken text), ...].
+
+    Consecutive lines from the same speaker form one turn. None is the
+    narrator, for any text before the first speaker label.
+    """
+    turns = []
+    for speaker, line in _spoken_lines(raw_text, speakers):
+        if turns and turns[-1][0] == speaker:
+            turns[-1][1].append(line)
+        else:
+            turns.append((speaker, [line]))
+    cleaned = [(speaker, _clean_inline("\n".join(lines))) for speaker, lines in turns]
+    return [(speaker, text) for speaker, text in cleaned if text]
+
+
+def spoken_text(raw_text):
+    """All the words a script will speak, for either kind of script."""
+    speakers = resolve_speaker_voices(raw_text)
+    if speakers:
+        return "\n\n".join(text for _, text in split_turns(raw_text, speakers))
+    return strip_markdown(raw_text)
 
 
 def write_audio(full_audio, out_path, fmt, sample_rate):
@@ -458,18 +587,37 @@ def process_job(engine, input_path, output_path, args):
     with open(input_path, "r", encoding="utf-8") as f:
         raw_text = f.read()
 
+    # In a dialogue script this is the narrator's voice, for any text before
+    # the first speaker label; --voice changes only that.
     voice = resolve_voice(raw_text, args.voice)
-    # The accent code must match the voice; derive it from the voice's first
-    # letter unless the caller pinned one with --lang.
-    lang_code = args.lang_code if args.lang_code else voice[0]
+    speakers = resolve_speaker_voices(raw_text)
 
-    cleaned = strip_markdown(raw_text)
-    if not cleaned.strip():
+    if speakers:
+        turns = split_turns(raw_text, speakers)
+    else:
+        turns = [(None, strip_markdown(raw_text))]
+    if not any(text.strip() for _, text in turns):
         raise ValueError("no spoken text found after stripping the markdown.")
+    if speakers:
+        cast = ", ".join(f"{name}={v}" for name, v in speakers.items())
+        print(f"Dialogue: {cast}; {len(turns)} turns.")
 
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
 
-    full_audio = engine.synthesize(cleaned, voice, speed=args.speed, lang_code=lang_code)
+    import numpy as np
+
+    pause = np.zeros(int(engine.sample_rate * TURN_PAUSE_SECONDS), dtype=np.float32)
+    pieces = []
+    for speaker, text in turns:
+        turn_voice = speakers[speaker] if speaker else voice
+        # The accent code must match the voice; derive it from the voice's
+        # first letter unless the caller pinned one with --lang.
+        lang_code = args.lang_code if args.lang_code else turn_voice[0]
+        if pieces:
+            pieces.append(pause)
+        pieces.append(engine.synthesize(text, turn_voice, speed=args.speed, lang_code=lang_code))
+
+    full_audio = pieces[0] if len(pieces) == 1 else np.concatenate(pieces)
     write_audio(full_audio, output_path, args.response_format, engine.sample_rate)
 
 
@@ -501,7 +649,9 @@ def parse_args(argv):
         metavar="VOICE",
         help=f"Kokoro voice for the whole run, overriding any per-script "
              f"**Voice:** line (default: the script's own voice, or "
-             f"{DEFAULT_VOICE}). The accent is derived from the voice's first "
+             f"{DEFAULT_VOICE}). In a dialogue script (one with a **Voices:** "
+             f"line) it changes only the narrator; speakers keep their voices. "
+             f"The accent is derived from the voice's first "
              f"letter ('a' American, 'b' British) unless --lang is given.",
     )
     parser.add_argument(

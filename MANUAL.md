@@ -25,6 +25,9 @@ spoken aloud versus stripped out before synthesis:
   `**Date:** ...`) are removed. This is also how `**Voice:** af_heart`
   works — see below.
 - **Horizontal rules** (`---`, `***`, `___`) are removed.
+- **Bold section labels**: a line that is entirely bold and has no
+  lowercase letters (e.g. `**INTRO**`, `**PART ONE**`) is removed, like a
+  header.
 - **An entirely-italic line** (e.g. `*Source: ...*` or `*End of script.*`)
   is a production note. Before any spoken prose it's skipped as front
   matter. After prose has started it's the end-of-script marker, and
@@ -68,12 +71,53 @@ source note are all stripped.
 
 Precedence, highest to lowest:
 
-1. `--voice` on the command line — applies to every script in that run.
+1. `--voice` on the command line — applies to every script in that run
+   (in a dialogue script, only to the narrator; see below).
 2. A `**Voice:**` line in the script's own header.
 3. The built-in default (`af_heart`).
 
 This lets you set a default for most episodes while overriding specific
 ones — e.g. a recurring segment that always uses a different voice.
+
+### Two or more speakers (dialogue)
+
+A script can be a conversation, with each speaker in their own voice. Add a
+`**Voices:**` line naming the speakers and their voices, then start each
+spoken line with the speaker's name and a colon:
+
+```markdown
+# Teaching a Model From Its Own Drafts
+
+**Voices:** Maya=af_heart, Theo=bm_george
+
+**INTRO**
+
+Maya: Today's paper is about combining many reasoning attempts.
+
+Theo: And the authors' answer is unusual.
+
+Maya: Go on.
+```
+
+- The label can be plain (`Maya:`) or bold (`**Maya:**` or `**Maya**:`),
+  and isn't spoken. Names match regardless of case.
+- A paragraph without a label continues the last speaker. Text before the
+  first label is read by the narrator: the `**Voice:**` voice, or the
+  default.
+- Only names in the `**Voices:**` line count as labels, so an ordinary
+  sentence like "Note: ..." is still spoken as part of the turn.
+- A speaker listed without a voice (`**Voices:** Maya, Theo`) gets a
+  distinct one automatically, alternating accent and gender: `af_heart`,
+  `bm_george`, `am_michael`, `bf_emma`, and so on.
+- A short pause (0.35 s) separates one speaker's turn from the next.
+- `--voice` changes only the narrator in a dialogue script; `--lang` pins
+  the accent for every speaker.
+- Without a `**Voices:**` line, a script is read by one voice exactly as
+  before, labels and all.
+
+All the other rules above (headers, metadata, italic-only lines) apply
+unchanged. Kokoro has no single-model multi-speaker mode: each turn is
+synthesized separately and the turns are joined.
 
 ## Full CLI reference
 
@@ -324,6 +368,9 @@ After restarting Claude Desktop:
 
   Claude should list the voices, queue a script, start the conversion, and
   report an MP3 in your outputs folder within a minute or two.
+- **Which version?** Ask "which version of podcast-generator is
+  installed?" Claude reads it from `list_podcasts`. From a terminal,
+  `podcast-generator-mcp --version` gives the same answer.
 
 ### Using it
 
@@ -334,6 +381,8 @@ the tools. For example:
   male voice. Call it science-ep01-tides."
 - "Turn these notes into a 5-minute podcast script, show me the script
   first, then make the audio." (Then paste or attach the notes.)
+- "Make a two-person conversation, host Maya (af_heart) and expert Theo
+  (bm_george), explaining this paper." (Then attach the paper.)
 - "What voices can podcast-generator use?"
 - "What podcasts have I made recently? Did any fail?"
 - "Requeue science-ep01-tides with replace=true and generate it again."
@@ -379,10 +428,10 @@ config doesn't change, since the command path stays the same.
 | Tool | What it does |
 |---|---|
 | `list_voices` | Lists the voices a script can use. |
-| `queue_podcast` | Saves a script to the inputs folder under a name you choose, optionally setting its voice. It checks the script first: an unknown voice, a script with nothing to speak, or a name that's already taken is reported straight away, not after a failed conversion. Returns the word count and an estimated length. |
+| `queue_podcast` | Saves a script to the inputs folder under a name you choose, optionally setting its voice, or with `voices` (e.g. `{"Maya": "af_heart", "Theo": "bm_george"}`) its speakers' voices for a dialogue. It checks the script first: an unknown voice, a script with nothing to speak, or a name that's already taken is reported straight away, not after a failed conversion. Returns the word count and an estimated length. |
 | `generate_now` | Starts converting everything queued, in the background, and returns at once. Does nothing if a conversion is already running. |
 | `podcast_status` | Reports whether a podcast is queued, converting, done (with the file path, size, and length), or failed (with the reason). With `wait_seconds` (up to 50), it waits for a conversion to finish before answering, returning as soon as it's done or failed. |
-| `list_podcasts` | Shows the folders, whether the watch is on, what's queued, and recent audio and failures. |
+| `list_podcasts` | Shows the installed version, the folders, whether the watch is on, what's queued, and recent audio and failures. |
 | `set_watch` | Turns the scheduled watch on or off. |
 
 Conversion never happens inside a tool call, because a long script takes
