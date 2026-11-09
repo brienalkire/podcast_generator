@@ -82,6 +82,7 @@ import os
 import shutil
 import sys
 import re
+import time
 from datetime import datetime
 
 from dotenv import load_dotenv
@@ -107,12 +108,22 @@ INPUT_DIR = os.environ.get("PODCAST_INPUTS_DIR") or os.path.join(HOME_DIR, "inpu
 OUTPUT_DIR = os.environ.get("PODCAST_OUTPUTS_DIR") or os.path.join(HOME_DIR, "outputs")
 ARCHIVE_DIR = os.environ.get("PODCAST_ARCHIVE_DIR") or os.path.join(HOME_DIR, "script_archive")
 FAILED_DIR = os.path.join(ARCHIVE_DIR, "failed")
+# Scripts queued by the MCP connector (podcast-generator-mcp) wait here, not
+# in the inputs folder, so the folder watch never converts them and a
+# connector run never converts the user's own drop-folder scripts. The
+# connector converts this folder by running the generator with
+# PODCAST_INPUTS_DIR pointed at it; finished scripts share ARCHIVE_DIR.
+CONNECTOR_QUEUE_DIR = (os.environ.get("PODCAST_CONNECTOR_QUEUE_DIR")
+                       or os.path.join(HOME_DIR, "connector_queue"))
 
 # Only one conversion run at a time on this machine. Without this, a manual
 # or MCP-started run overlapping a scheduled one would convert the same
 # scripts twice and trip over each other's archiving. The OS releases the
 # lock automatically if a run crashes, so a stale lock file is harmless.
 LOCK_PATH = os.path.join(HOME_DIR, ".generator.lock")
+# --wait: how long to wait for another run to finish, and how often to check.
+WAIT_FOR_RUN_MINUTES = 120
+WAIT_POLL_SECONDS = 5
 
 # Where output goes when there's no console (pythonw.exe, which the
 # scheduled task uses so no window flashes up), and for MCP-started runs.
@@ -676,6 +687,13 @@ def parse_args(argv):
         help=f"Audio output format (default: {DEFAULT_FORMAT}).",
     )
     parser.add_argument(
+        "--wait",
+        action="store_true",
+        help="If another conversion run is in progress, wait for it to "
+             f"finish (up to {WAIT_FOR_RUN_MINUTES} minutes) instead of "
+             "exiting.",
+    )
+    parser.add_argument(
         "--output",
         metavar="output_file",
         default=None,
@@ -703,6 +721,12 @@ def main(argv):
     args = parse_args(argv)
 
     lock = acquire_run_lock()
+    if lock is None and args.wait:
+        print("Another conversion run is in progress; waiting for it to finish.")
+        deadline = time.monotonic() + WAIT_FOR_RUN_MINUTES * 60
+        while lock is None and time.monotonic() < deadline:
+            time.sleep(WAIT_POLL_SECONDS)
+            lock = acquire_run_lock()
     if lock is None:
         if args.input_path:
             print("Error: another conversion run is in progress; try again "
@@ -754,7 +778,7 @@ def run(args):
         return 1
 
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-
+    print(f"Found {len(jobs)} script(s) to convert in {os.path.dirname(os.path.abspath(jobs[0][0]))}.")
     print(f"Found {len(jobs)} script(s) to convert.")
 
     # A single engine instance is reused across every script in the run;

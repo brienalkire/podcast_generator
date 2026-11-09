@@ -23,6 +23,7 @@ venv/
 /inputs
 /outputs
 /script_archive
+/connector_queue
 
 # Local model cache transfer bundles
 *.zip

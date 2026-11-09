@@ -58,8 +58,8 @@ mcp = MCPServer(
     version=g.__version__,
     instructions=(
         "Turns markdown podcast scripts into spoken audio locally with Kokoro. "
-        "Typical flow: write the script, call queue_podcast, then (unless the "
-        "folder watch is on) call generate_now, then call podcast_status with "
+        "Typical flow: write the script, call queue_podcast, then call "
+        "generate_now, then call podcast_status with "
         "wait_seconds=50, repeating while it reports 'converting', until it "
         "reports 'done' or 'failed'. podcast_status does the waiting itself, "
         "so no separate wait or sleep is needed. Conversion takes roughly a "
@@ -179,28 +179,13 @@ def _watch_state() -> str:
     return "off" if state == "Disabled" else "on"
 
 
-def _watch_interval_minutes() -> int | None:
-    try:
-        result = _powershell(
-            f"(Get-ScheduledTask -TaskName '{WATCH_TASK}').Triggers | "
-            "ForEach-Object { $_.Repetition.Interval } | Select-Object -First 1")
-        match = re.fullmatch(r"PT(?:(\d+)H)?(?:(\d+)M)?", result.stdout.strip())
-        if match:
-            return int(match.group(1) or 0) * 60 + int(match.group(2) or 0)
-    except (OSError, subprocess.SubprocessError):
-        pass
-    return None
+NEXT_STEP = ("Call generate_now to convert it, then podcast_status with "
+             "wait_seconds=50 to follow it.")
 
 
-def _next_step_hint(watch: str) -> str:
-    if watch == "on":
-        minutes = _watch_interval_minutes()
-        every = f"every {minutes} minutes" if minutes else "regularly"
-        return (f"The folder watch is on (checks {every}), so it will be "
-                "converted automatically. Use podcast_status with "
-                "wait_seconds=50 to follow it.")
-    return ("The folder watch is not on. Call generate_now to convert it, "
-            "then podcast_status with wait_seconds=50 to follow it.")
+def _queued_scripts(folder: str) -> list[str]:
+    return sorted(os.path.basename(p)
+                  for p in glob.glob(os.path.join(glob.escape(folder), "*.md")))
 
 
 # --------------------------------------------------------------- tools
@@ -271,7 +256,15 @@ def queue_podcast(name: str, script: str, voice: str | None = None,
             "italic-only lines, the script is empty. Check for an italic-only "
             "line before the prose that ends the script early.")
 
-    target = os.path.join(g.INPUT_DIR, name + ".md")
+    target = os.path.join(g.CONNECTOR_QUEUE_DIR, name + ".md")
+    # A script of the same name in the watch's inputs folder would write the
+    # same audio file, so it's refused even with replace=true: that script
+    # is the user's, not the connector's to overwrite.
+    if os.path.exists(os.path.join(g.INPUT_DIR, name + ".md")):
+        raise ToolError(
+            f"a script named '{name}' is waiting in the folder watch's inputs "
+            f"folder ({g.INPUT_DIR}), and both would write the same audio file. "
+            "Pick another name.")
     if not replace:
         if os.path.exists(target):
             raise ToolError(f"'{name}' is already queued. Pass replace=true to overwrite it.")
@@ -281,13 +274,12 @@ def queue_podcast(name: str, script: str, voice: str | None = None,
                 f"audio for '{name}' already exists ({existing[0]}). Pick another "
                 "name, or pass replace=true to regenerate it.")
 
-    os.makedirs(g.INPUT_DIR, exist_ok=True)
+    os.makedirs(g.CONNECTOR_QUEUE_DIR, exist_ok=True)
     partial = target + ".part"  # not *.md, so a run can't pick it up half-written
     with open(partial, "w", encoding="utf-8", newline="\n") as f:
         f.write(script)
     os.replace(partial, target)
 
-    watch = _watch_state()
     result = {"queued": target, "voice": chosen_voice}
     if speakers:
         result["speakers"] = speakers
@@ -301,51 +293,53 @@ def queue_podcast(name: str, script: str, voice: str | None = None,
         **result,
         "spoken_words": words,
         "estimated_minutes": round(words / WORDS_PER_MINUTE, 1),
-        "watch": watch,
-        "next_step": _next_step_hint(watch),
+        "next_step": NEXT_STEP,
     }
 
 
 @mcp.tool()
 def generate_now() -> dict:
-    """Start converting every queued script in the background.
+    """Start converting every script queue_podcast has queued, in the background.
 
     Returns immediately. Use podcast_status (with wait_seconds to wait for
-    it) to see when each one is done.
-    Does nothing if a conversion is already running (it will take the
-    whole queue).
+    it) to see when each one is done. Only the connector's own queue is
+    converted, never scripts in the folder watch's inputs folder. If another
+    conversion is running (the watch, or an earlier generate_now), this one
+    waits for it to finish and then starts.
     """
-    queued = sorted(os.path.basename(p) for p in glob.glob(os.path.join(g.INPUT_DIR, "*.md")))
+    queued = _queued_scripts(g.CONNECTOR_QUEUE_DIR)
     global _started_run
-    if _converting():
-        return {"started": False, "reason": "A conversion is already running; it "
-                "will convert the queued scripts.", "queued": queued}
     if not queued:
         return {"started": False, "reason": "Nothing is queued.", "queued": []}
+    busy = _converting()
 
     log = g.open_log()
     log.write(f"--- {datetime.now():%Y-%m-%d %H:%M:%S} (started from MCP) ---\n")
     log.flush()
     _started_run = subprocess.Popen(
-        [sys.executable, "-m", "podcast_generator"],
+        [sys.executable, "-m", "podcast_generator", "--wait"],
         cwd=g.HOME_DIR, stdin=subprocess.DEVNULL, stdout=log, stderr=log,
         creationflags=NO_WINDOW,
+        env={**os.environ, "PODCAST_INPUTS_DIR": g.CONNECTOR_QUEUE_DIR},
     )
     log.close()
-    return {"started": True, "queued": queued,
-            "note": "The first script includes about a minute of model loading."}
+    note = "The first script includes about a minute of model loading."
+    if busy:
+        note = ("Another conversion is running; this one starts when it "
+                "finishes. " + note)
+    return {"started": True, "queued": queued, "note": note}
 
 
 def _status_once(name: str) -> dict:
     """podcast_status's answer right now, without waiting."""
     running = _converting()
-    queued_path = os.path.join(g.INPUT_DIR, name + ".md")
+    queued_path = os.path.join(g.CONNECTOR_QUEUE_DIR, name + ".md")
     if os.path.isfile(queued_path):
         if running:
             return {"status": "converting",
-                    "detail": "A conversion run is in progress and this script is in its queue."}
-        watch = _watch_state()
-        return {"status": "queued", "watch": watch, "next_step": _next_step_hint(watch)}
+                    "detail": "A conversion run is in progress, or waiting for "
+                    "another to finish, and this script is in its queue."}
+        return {"status": "queued", "next_step": NEXT_STEP}
 
     outputs = _output_files(name)
     notes = _failure_notes(name)
@@ -365,11 +359,9 @@ def _status_once(name: str) -> dict:
 
 
 def _may_still_change(status: dict) -> bool:
-    """Whether waiting could change this status: converting, or queued with
-    the watch on (it'll be picked up). Queued with the watch off won't move
-    until someone calls generate_now."""
-    return status["status"] == "converting" or (
-        status["status"] == "queued" and status.get("watch") == "on")
+    """Whether waiting could change this status. Only a conversion moves it;
+    a queued script waits for generate_now."""
+    return status["status"] == "converting"
 
 
 @mcp.tool()
@@ -383,7 +375,7 @@ async def podcast_status(name: str, wait_seconds: int = 0) -> dict:
             answering at once. Use this to follow a conversion: call again
             with wait_seconds=50 while the status is still "converting".
             Returns early as soon as the status is final, or if waiting
-            can't change it (queued with the watch off: call generate_now).
+            can't change it (queued but not started: call generate_now).
     """
     name = _check_name(name)
     wait_seconds = max(0, min(int(wait_seconds), MAX_WAIT_SECONDS))
@@ -404,7 +396,10 @@ async def podcast_status(name: str, wait_seconds: int = 0) -> dict:
 
 @mcp.tool()
 def list_podcasts(limit: int = 20) -> dict:
-    """Overview: version, folders, watch state, queued scripts, recent audio and failures.
+    """Overview: version, folders, queued scripts, recent audio and failures.
+
+    "queued" is the connector's own queue. "watch_inputs" lists scripts in
+    the folder watch's inputs folder, which the connector never converts.
 
     Args:
         limit: Maximum number of recent audio files and failures to list.
@@ -419,11 +414,12 @@ def list_podcasts(limit: int = 20) -> dict:
     failures = newest(glob.glob(os.path.join(g.FAILED_DIR, "*.error.txt")))
     return {
         "version": g.__version__,
-        "folders": {"inputs": g.INPUT_DIR, "outputs": g.OUTPUT_DIR, "archive": g.ARCHIVE_DIR},
+        "folders": {"connector_queue": g.CONNECTOR_QUEUE_DIR, "outputs": g.OUTPUT_DIR,
+                    "archive": g.ARCHIVE_DIR, "watch_inputs": g.INPUT_DIR},
         "watch": _watch_state(),
         "converting_now": _converting(),
-        "queued": sorted(os.path.basename(p)
-                         for p in glob.glob(os.path.join(g.INPUT_DIR, "*.md"))),
+        "queued": _queued_scripts(g.CONNECTOR_QUEUE_DIR),
+        "watch_inputs": _queued_scripts(g.INPUT_DIR),
         "recent_audio": [{"name": os.path.basename(p), "path": p, "finished": _when(p)}
                          for p in audio],
         "recent_failures": [{"script": os.path.basename(p)[: -len(".error.txt")],
@@ -436,7 +432,9 @@ def list_podcasts(limit: int = 20) -> dict:
 def set_watch(on: bool) -> dict:
     """Turn the scheduled folder watch on or off (Windows only).
 
-    While on, queued scripts are converted automatically every few minutes.
+    The watch converts scripts dropped in the inputs folder every few
+    minutes. It doesn't affect scripts queued with queue_podcast, which
+    always need generate_now.
     """
     state = _watch_state()
     if state in ("not set up", "unavailable"):

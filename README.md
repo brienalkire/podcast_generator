@@ -151,6 +151,7 @@ here.
 | `--speed FLOAT` | Speaking rate (default `1.0`; `0.9` slower, `1.1` faster). |
 | `--format {mp3,wav}` | Output format (default `mp3`). |
 | `--output PATH` | Output file (single-file mode only). |
+| `--wait` | Wait for a conversion run already in progress, instead of exiting. |
 | `--lang CODE` | Accent override; normally inferred from the voice name. |
 | `--version` | Print the version and exit. |
 

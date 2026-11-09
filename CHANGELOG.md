@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-09
+
+### Fixed
+
+- **Connector scripts no longer go through the watch's inputs folder.**
+  `queue_podcast` used to save scripts to the inputs folder, so a watch
+  run could pick them up, and `generate_now` converted everything there,
+  including scripts you had left for the watch. The connector now has its
+  own queue, `connector_queue/` in the home folder (or
+  `PODCAST_CONNECTOR_QUEUE_DIR`). `generate_now` converts only that queue,
+  and the watch never touches it. Converted and failed scripts still go to
+  the shared archive. `queue_podcast` refuses a name that's waiting in the
+  inputs folder, since both would write the same audio file.
+
+### Added
+
+- `podcast-generator --wait`: if another conversion run is in progress,
+  wait for it to finish (up to 2 hours) instead of exiting.
+  `generate_now` uses it, so it starts even while a watch run is going.
+- MCP: `list_podcasts` shows the connector's queue (`queued`) and, separately,
+  scripts waiting in the watch's inputs folder (`watch_inputs`).
+
+### Changed
+
+- MCP: after `queue_podcast`, always call `generate_now`. The folder watch no
+  longer converts connector scripts, so `podcast_status` no longer waits on a
+  queued script when the watch is on.
+
 ## [0.4.0] - 2026-11-09
 
 ### Added
@@ -241,7 +269,8 @@ from a fresh history, so they have no tags or releases here.*
   those repos' own changelogs, not here — this file covers only
   `podcast_generator`.
 
-[Unreleased]: https://github.com/brienalkire/podcast_generator/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/brienalkire/podcast_generator/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/brienalkire/podcast_generator/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/brienalkire/podcast_generator/compare/v0.3.5...v0.4.0
 [0.3.5]: https://github.com/brienalkire/podcast_generator/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/brienalkire/podcast_generator/compare/v0.3.3...v0.3.4

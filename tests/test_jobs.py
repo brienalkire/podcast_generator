@@ -1,4 +1,5 @@
 import os
+import re
 
 import pytest
 
@@ -97,3 +98,40 @@ def test_version_flag(capsys):
         g.parse_args(["podcast-generator", "--version"])
     assert exc.value.code == 0
     assert capsys.readouterr().out.strip() == f"podcast-generator {g.__version__}"
+
+
+def test_wait_retries_the_run_lock(monkeypatch):
+    attempts = []
+
+    def acquire():
+        attempts.append(1)
+        return None if len(attempts) < 3 else "lock"
+
+    monkeypatch.setattr(g, "acquire_run_lock", acquire)
+    monkeypatch.setattr(g, "release_run_lock", lambda handle: None)
+    monkeypatch.setattr(g, "WAIT_POLL_SECONDS", 0)
+    monkeypatch.setattr(g, "run", lambda args: 0)
+    assert g.main(["podcast-generator", "--wait"]) == 0
+    assert len(attempts) == 3
+
+
+def test_without_wait_a_busy_lock_leaves_the_queue(monkeypatch):
+    monkeypatch.setattr(g, "acquire_run_lock", lambda: None)
+    monkeypatch.setattr(g, "run", lambda args: pytest.fail("should not run"))
+    assert g.main(["podcast-generator"]) == 0
+
+
+def test_connector_runs_archive_repeated_names_with_a_timestamp(folders, monkeypatch, tmp_path):
+    # A connector run points INPUT_DIR at the connector queue (see
+    # mcp_server.generate_now); archiving then works as for the watch.
+    queue = tmp_path / "connector_queue"
+    queue.mkdir()
+    monkeypatch.setattr(g, "INPUT_DIR", str(queue))
+    archive = folders[2]
+    archive.mkdir()
+    (archive / "ep.md").write_text("first take")
+    (queue / "ep.md").write_text("second take")
+    dest = g.archive_script(str(queue / "ep.md"))
+    assert re.fullmatch(r"ep_\d{8}_\d{6}\.md", os.path.basename(dest))
+    assert (archive / "ep.md").read_text() == "first take"
+    assert not (queue / "ep.md").exists()

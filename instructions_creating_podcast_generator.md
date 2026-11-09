@@ -3,7 +3,7 @@
 **Author:** Brien Alkire  
 **Date Created:** 20260605  
 **Date Revised:** 20261109  
-**Version:** 6.2  
+**Version:** 6.3  
 
 ---
 
@@ -63,6 +63,7 @@ Everything lives in one **home folder**: `podcast_generator` in your Documents f
 inputs/                 default inputs folder: your .md scripts go here
 outputs/                default outputs folder: generated audio is written here
 script_archive/         default archive folder: converted scripts (failed ones in failed/)
+connector_queue/        scripts Claude Desktop has queued, kept apart from inputs/
 generator.log           output of scheduled and Claude-started runs
 ```
 
@@ -261,7 +262,7 @@ Settings are saved to `.env` and take effect on the next run. Each scheduled run
 
 ## From Claude Desktop
 
-If you'd rather ask an AI to write and voice an episode for you, `podcast-generator-mcp` connects podcast_generator to Claude Desktop (or another MCP app). Claude can then queue a script, start the conversion, and tell you when the audio is ready, all from the chat. To set it up, install the tool with `uv tool install "podcast-generator[mcp]"` (or pipx), run `podcast-generator-mcp --config` to print the entry for Claude Desktop's config file, then fully quit and restart Claude Desktop. "Using it from Claude Desktop (MCP)" in `MANUAL.md` has the steps, how to check the connector is installed, example prompts, and how to upgrade. The script-writing guidelines above apply just as much when Claude writes the script, so it's worth pointing Claude at this document.
+If you'd rather ask an AI to write and voice an episode for you, `podcast-generator-mcp` connects podcast_generator to Claude Desktop (or another MCP app). Claude can then queue a script, start the conversion, and tell you when the audio is ready, all from the chat. Its scripts wait in their own `connector_queue/` folder, so they never mix with scripts you drop in the inputs folder, whether the watch is on or off. To set it up, install the tool with `uv tool install "podcast-generator[mcp]"` (or pipx), run `podcast-generator-mcp --config` to print the entry for Claude Desktop's config file, then fully quit and restart Claude Desktop. "Using it from Claude Desktop (MCP)" in `MANUAL.md` has the steps, how to check the connector is installed, example prompts, and how to upgrade. The script-writing guidelines above apply just as much when Claude writes the script, so it's worth pointing Claude at this document.
 
 ---
 

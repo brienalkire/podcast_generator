@@ -133,6 +133,7 @@ podcast-generator [input_script.md] [options]
 | `--speed FLOAT` | Speaking rate multiplier (default `1.0`; `0.9` slower, `1.1` faster). |
 | `--format {mp3,wav}` | Output format (default `mp3`). |
 | `--output PATH` | Output file path. Only used in single-file mode; ignored in batch mode. |
+| `--wait` | If another conversion run is in progress, wait for it to finish (up to 2 hours) instead of exiting. |
 | `--version` | Print the installed version and exit. |
 
 `python -m podcast_generator` does the same thing.
@@ -273,8 +274,8 @@ Changes take effect on the next run. There's nothing to restart.
 ### Where settings are stored
 
 Settings live in `.env` in the **home folder**, which also holds the
-default `inputs/`, `outputs/` and `script_archive/` folders and
-`generator.log`. The home folder is:
+default `inputs/`, `outputs/` and `script_archive/` folders, the
+connector's `connector_queue/` (see below), and `generator.log`. The home folder is:
 
 - `podcast_generator` in your Documents folder, for a `pip install`;
 - the repo folder, when running from a source checkout;
@@ -402,11 +403,20 @@ What to expect:
   `podcast_status` and tells you when the MP3 is ready, with its path,
   size, and length. Long episodes take several checks. You can keep
   chatting, or come back and ask "is science-ep01-tides done?"
-- **Where things go.** Scripts are saved to the inputs folder, audio to
-  the outputs folder, and converted scripts are moved to the archive (see
-  "Where things live"). Ask "where are my podcast folders?" to see the
-  paths. A script that fails goes to `script_archive/failed`, next to a
-  `.error.txt` file giving the reason.
+- **Where things go.** Scripts Claude writes are saved to their own
+  queue, `connector_queue/` in the home folder, not to the watch's inputs
+  folder. Audio goes to the outputs folder, and converted scripts are moved
+  to the archive, the same as for drop-folder scripts (see "Where things
+  live"). Ask "where are my podcast folders?" to see the paths. A script
+  that fails goes to `script_archive/failed`, next to a `.error.txt` file
+  giving the reason.
+- **Kept apart from the drop folder.** The connector never converts
+  scripts in the inputs folder, and the folder watch never converts the
+  connector's queue, whether the watch is on or off. A script you've left
+  in the inputs folder stays there for the watch. If the watch is in the
+  middle of a run when Claude starts a conversion, Claude's waits for it to
+  finish and then starts. To keep the queue somewhere else, set
+  `PODCAST_CONNECTOR_QUEUE_DIR` in `.env`.
 - **Names are unique.** Queuing a name that already has a script or audio
   is refused unless you say to replace it.
 
@@ -428,16 +438,15 @@ config doesn't change, since the command path stays the same.
 | Tool | What it does |
 |---|---|
 | `list_voices` | Lists the voices a script can use. |
-| `queue_podcast` | Saves a script to the inputs folder under a name you choose, optionally setting its voice, or with `voices` (e.g. `{"Maya": "af_heart", "Theo": "bm_george"}`) its speakers' voices for a dialogue. It checks the script first: an unknown voice, a script with nothing to speak, or a name that's already taken is reported straight away, not after a failed conversion. Returns the word count and an estimated length. |
-| `generate_now` | Starts converting everything queued, in the background, and returns at once. Does nothing if a conversion is already running. |
+| `queue_podcast` | Saves a script to the connector's queue under a name you choose, optionally setting its voice, or with `voices` (e.g. `{"Maya": "af_heart", "Theo": "bm_george"}`) its speakers' voices for a dialogue. It checks the script first: an unknown voice, a script with nothing to speak, or a name that's already taken (including by a script waiting in the watch's inputs folder) is reported straight away, not after a failed conversion. Returns the word count and an estimated length. |
+| `generate_now` | Starts converting everything in the connector's queue, in the background, and returns at once. Never touches the watch's inputs folder. If another conversion is running, it waits for that to finish first. |
 | `podcast_status` | Reports whether a podcast is queued, converting, done (with the file path, size, and length), or failed (with the reason). With `wait_seconds` (up to 50), it waits for a conversion to finish before answering, returning as soon as it's done or failed. |
-| `list_podcasts` | Shows the installed version, the folders, whether the watch is on, what's queued, and recent audio and failures. |
-| `set_watch` | Turns the scheduled watch on or off. |
+| `list_podcasts` | Shows the installed version, the folders, whether the watch is on, what's in the connector's queue, what's waiting in the watch's inputs folder, and recent audio and failures. |
+| `set_watch` | Turns the scheduled watch on or off. This affects only the inputs folder, not the connector's queue. |
 
 Conversion never happens inside a tool call, because a long script takes
-minutes. If the watch is on, a queued script is picked up on the next
-check. Otherwise the AI calls `generate_now`. Either way, it follows the
-conversion with `podcast_status`, passing `wait_seconds` so each call
+minutes. After queuing a script, the AI calls `generate_now`, then follows
+the conversion with `podcast_status`, passing `wait_seconds` so each call
 waits up to 50 seconds instead of the AI needing a separate way to pause.
 Output from conversions started this way goes to `generator.log` in the
 home folder.

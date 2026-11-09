@@ -12,13 +12,14 @@ from podcast_generator import mcp_server as m  # noqa: E402
 @pytest.fixture
 def server(folders, monkeypatch):
     """Fast polling, no real scheduled-task or run-lock checks."""
-    inputs, outputs, _ = folders
-    inputs.mkdir()
+    _, outputs, _ = folders
+    queue = folders[0].parent / "connector_queue"
+    queue.mkdir()
     outputs.mkdir()
     monkeypatch.setattr(m, "STATUS_POLL_SECONDS", 0.05)
     monkeypatch.setattr(m, "_watch_state", lambda: "off")
     monkeypatch.setattr(m, "_converting", lambda: False)
-    return inputs, outputs
+    return queue, outputs
 
 
 def status(name, wait_seconds=0):
@@ -62,24 +63,21 @@ def test_wait_gives_up_after_wait_seconds(server, monkeypatch):
     assert 0.9 <= time.monotonic() - start < 3
 
 
-def test_queued_with_watch_off_does_not_wait(server):
-    inputs, _ = server
-    (inputs / "ep.md").write_text("Hello.")
+def test_queued_does_not_wait_even_with_the_watch_on(server, monkeypatch):
+    queue, _ = server
+    (queue / "ep.md").write_text("Hello.")
+    monkeypatch.setattr(m, "_watch_state", lambda: "on")
     start = time.monotonic()
     result = status("ep", wait_seconds=50)
     assert result["status"] == "queued"
+    assert "generate_now" in result["next_step"]
     assert time.monotonic() - start < 1
 
 
-def test_queued_with_watch_on_waits(server, monkeypatch):
-    inputs, _ = server
-    (inputs / "ep.md").write_text("Hello.")
-    monkeypatch.setattr(m, "_watch_state", lambda: "on")
-    monkeypatch.setattr(m, "_watch_interval_minutes", lambda: 5)
-    start = time.monotonic()
-    result = status("ep", wait_seconds=1)
-    assert result["status"] == "queued"
-    assert time.monotonic() - start >= 0.9
+def test_script_in_watch_inputs_is_not_the_connectors(server, folders):
+    folders[0].mkdir()
+    (folders[0] / "ep.md").write_text("Hello.")
+    assert status("ep")["status"] == "not found"
 
 
 def test_wait_is_capped(server, monkeypatch):

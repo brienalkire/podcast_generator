@@ -15,7 +15,7 @@ from podcast_generator import generator as g  # noqa: E402
 
 @pytest.fixture
 def folders(tmp_path, monkeypatch):
-    """Fresh inputs/outputs/archive folders for one test."""
+    """Fresh inputs/outputs/archive (and connector queue) folders for one test."""
     inputs = tmp_path / "inputs"
     outputs = tmp_path / "outputs"
     archive = tmp_path / "script_archive"
@@ -23,4 +23,5 @@ def folders(tmp_path, monkeypatch):
     monkeypatch.setattr(g, "OUTPUT_DIR", str(outputs))
     monkeypatch.setattr(g, "ARCHIVE_DIR", str(archive))
     monkeypatch.setattr(g, "FAILED_DIR", str(archive / "failed"))
+    monkeypatch.setattr(g, "CONNECTOR_QUEUE_DIR", str(tmp_path / "connector_queue"))
     return inputs, outputs, archive
