@@ -778,8 +778,8 @@ def run(args):
         return 1
 
     os.makedirs(OUTPUT_DIR, exist_ok=True)
+
     print(f"Found {len(jobs)} script(s) to convert in {os.path.dirname(os.path.abspath(jobs[0][0]))}.")
-    print(f"Found {len(jobs)} script(s) to convert.")
 
     # A single engine instance is reused across every script in the run;
     # KokoroDirectTTS caches its pipeline by language, so the model loads at

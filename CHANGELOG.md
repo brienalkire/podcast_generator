@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- A conversion run logged "Found N script(s) to convert" twice (new in 0.4.1).
+  It now logs it once, with the folder.
+
 ## [0.4.1] - 2026-11-09
 
 ### Fixed
