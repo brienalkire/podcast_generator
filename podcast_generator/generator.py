@@ -1164,6 +1164,21 @@ def parse_args(argv):
              "script's **Briefing:** line.",
     )
     parser.add_argument(
+        "--extract-notes",
+        metavar="DECK.pptx",
+        default=None,
+        help="Don't convert anything: write a briefing script from this "
+             "PowerPoint file's speaker notes, one '## Page N' section per "
+             "slide, to DECK.md (or --output). Hidden slides are left out, "
+             "matching PowerPoint's default PDF export.",
+    )
+    parser.add_argument(
+        "--include-hidden",
+        action="store_true",
+        help="With --extract-notes: keep hidden slides, for a PDF exported "
+             "with 'Include hidden slides' ticked.",
+    )
+    parser.add_argument(
         "--preview",
         action="store_true",
         help="Single-file mode only: synthesize the script and print its "
@@ -1203,6 +1218,8 @@ def main(argv):
         print(f"--- {datetime.now():%Y-%m-%d %H:%M:%S} ---")
     setup_logging()
     args = parse_args(argv)
+    if args.extract_notes:
+        return run_extract_notes(args)
 
     lock = acquire_run_lock()
     if lock is None and args.wait:
@@ -1224,6 +1241,28 @@ def main(argv):
         return run(args)
     finally:
         release_run_lock(lock)
+
+
+def run_extract_notes(args):
+    """--extract-notes: speaker notes to a briefing script. Converts nothing."""
+    from .notes import extract_notes
+
+    if args.input_path:
+        print("Error: --extract-notes takes the .pptx file itself: "
+              "podcast-generator --extract-notes DECK.pptx", file=sys.stderr)
+        return 1
+    try:
+        path, report = extract_notes(args.extract_notes, args.output, args.include_hidden)
+    except (ValueError, OSError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    except Exception as exc:  # noqa: BLE001 - a malformed deck can fail in many ways
+        print(f"Error: couldn't read the speaker notes ({exc}).", file=sys.stderr)
+        return 1
+    print(f"Wrote {path}")
+    for line in report:
+        print(line)
+    return 0
 
 
 def run(args):

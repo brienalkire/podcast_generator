@@ -216,6 +216,42 @@ Maya: That's the summary.
 PDFs over 200 MB or 500 pages are refused, as are password-protected ones.
 Only the pages are drawn; nothing embedded in the PDF is run.
 
+#### From PowerPoint speaker notes
+
+If your narration is already in a deck's speaker notes, turn it into a
+briefing script instead of retyping it:
+
+1. In PowerPoint: **File > Export > Create PDF/XPS Document** (or Save As
+   PDF). Under **Options**, set "Publish what" to **Slides** (not Notes
+   Pages). Leave "Include hidden slides" unticked unless you also use
+   `--include-hidden` below.
+2. Extract the notes from the same deck:
+
+   ```
+   podcast-generator --extract-notes q3-review.pptx
+   ```
+
+   This writes `q3-review.md` next to the deck: a `**Briefing:**
+   q3-review.pdf` line and a `## Page N` section per slide with its notes.
+   It never overwrites an existing file; use `--output` for another name.
+3. Read what it reports, review the script, then convert it:
+   `podcast-generator q3-review.md`.
+
+What it does with the notes:
+
+- Hidden slides are left out and the rest numbered 1, 2, 3..., matching
+  PowerPoint's PDF export. With `--include-hidden`, every slide is kept and
+  numbered, to match a PDF exported with "Include hidden slides".
+- Text in square brackets is removed as a stage direction (`[click]`,
+  `[pause]`).
+- It warns about slides with no notes (shown silently unless you add
+  some) and about web addresses, which read badly aloud.
+- A notes line that would mean something in a script (a `#` header, an
+  italic-only line, a `**Key:**` line) is made plain, so it's read aloud
+  rather than ending or changing the script.
+- Only `.pptx` works. Save an old `.ppt` as `.pptx` first. Nothing extra
+  needs installing for this step.
+
 ## Full CLI reference
 
 ```
@@ -231,6 +267,8 @@ podcast-generator [input_script.md] [options]
 | `--format {mp3,wav}` | Output format (default `mp3`). |
 | `--output PATH` | Output file path. Only used in single-file mode; ignored in batch mode. |
 | `--pdf FILE` | Single-file mode only: make a [narrated briefing](#narrated-briefings-pdf-to-video) MP4 of this PDF. Overrides the script's `**Briefing:**` line. |
+| `--extract-notes DECK.pptx` | Don't convert anything: write a briefing script from the deck's [speaker notes](#from-powerpoint-speaker-notes) to `DECK.md` (or `--output`). |
+| `--include-hidden` | With `--extract-notes`: keep hidden slides. |
 | `--preview` | Single-file mode only: synthesize the script and print how long it runs, without saving audio or archiving it. A script with `## Page N` markers gets one row per page. |
 | `--lexicon FILE` | Extra [pronunciation lexicon](#pronunciation-fixes-lexicon) for this run, on top of `lexicon.txt` and any script's `**Lexicon:**` file. |
 | `--wait` | If another conversion run is in progress, wait for it to finish (up to 2 hours) instead of exiting. |
@@ -543,6 +581,7 @@ config doesn't change, since the command path stays the same.
 | `list_voices` | Lists the voices a script can use. |
 | `queue_podcast` | Saves a script to the connector's queue under a name you choose, optionally setting its voice, or with `voices` (e.g. `{"Maya": "af_heart", "Theo": "bm_george"}`) its speakers' voices for a dialogue. It checks the script first: an unknown voice, a script with nothing to speak, or a name that's already taken (including by a script waiting in the watch's inputs folder) is reported straight away, not after a failed conversion. Returns the word count and an estimated length. With `pdf` (the PDF's full path on this computer) it queues a [narrated briefing](#narrated-briefings-pdf-to-video) instead: the script is checked against the PDF first, and the PDF is copied into the queue, so moving or editing the original afterwards doesn't affect the job. |
 | `inspect_briefing` | Reads a PDF on this computer: its page count, each page's text and title, and which pages have no text layer (scanned images). Claude uses it to write one narration section per page, with the right `## Page N` numbers. |
+| `extract_notes` | Makes a briefing script from a `.pptx` deck's speaker notes and returns it for Claude to review and queue. Writes no files. |
 | `validate_briefing` | Checks a briefing script against its PDF without queueing anything: the same strict page checks a conversion does, plus warnings and an estimated length. |
 | `generate_now` | Starts converting everything in the connector's queue, in the background, and returns at once. Never touches the watch's inputs folder. If another conversion is running, it waits for that to finish first. |
 | `podcast_status` | Reports whether a podcast is queued, converting, done (with the file path, size, and length), or failed (with the reason). For a briefing it says it's a video and gives the subtitle file. With `wait_seconds` (up to 50), it waits for a conversion to finish before answering, returning as soon as it's done or failed. |

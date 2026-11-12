@@ -130,7 +130,8 @@ own voice, with a short pause between turns. See
 **Narrated briefings**: add `**Briefing:** deck.pdf` and a `## Page N`
 line before each page's narration, and the script makes an MP4 that shows
 each page while it's read. Needs `pip install "podcast-generator[briefing]"`
-and ffmpeg. See
+and ffmpeg. Narration already in PowerPoint speaker notes?
+`podcast-generator --extract-notes deck.pptx` writes the script for you. See
 [Narrated briefings](https://github.com/brienalkire/podcast_generator/blob/main/MANUAL.md#narrated-briefings-pdf-to-video).
 
 **Pronunciation fixes**: put lines like `JADC2 = J A D C two` in

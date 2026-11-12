@@ -29,6 +29,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   queueing). `queue_podcast` takes `pdf=<path>`, checks the script against
   it, and queues a copy of the PDF. `podcast_status` and `list_podcasts`
   report briefing videos.
+- **Scripts from PowerPoint speaker notes.** `--extract-notes deck.pptx`
+  writes a briefing script with a `## Page N` section per slide's notes,
+  leaving out hidden slides to match PowerPoint's PDF export
+  (`--include-hidden` keeps them). It removes `[bracketed]` stage
+  directions and warns about slides without notes and about web addresses.
+  No extra install needed. The connector's `extract_notes` tool does the
+  same for Claude.
 - **`--preview`** synthesizes one script and prints its timing without
   saving audio or archiving the script.
 

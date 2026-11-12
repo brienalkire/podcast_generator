@@ -438,6 +438,33 @@ def inspect_briefing(pdf: str, max_chars_per_page: int = 600) -> dict:
 
 
 @mcp.tool()
+def extract_notes(pptx: str, include_hidden: bool = False) -> dict:
+    """Make a briefing script from a PowerPoint deck's speaker notes.
+
+    Returns the script (one '## Page N' section per slide, holding that
+    slide's notes) for you to review and improve, then queue with
+    queue_podcast(pdf=<the deck exported as PDF>). Writes no files. Hidden
+    slides are left out, matching PowerPoint's default PDF export.
+
+    Args:
+        pptx: The .pptx file's full path on this computer.
+        include_hidden: Keep hidden slides, if the user's PDF includes them.
+    """
+    from . import notes
+
+    path = os.path.abspath(os.path.expanduser(pptx.strip().strip('"')))
+    try:
+        slides = notes.read_slides(path)
+        base = os.path.splitext(os.path.basename(path))[0]
+        script, report = notes.notes_to_script(slides, base, base + ".pdf", include_hidden)
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
+    return {"script": script, "report": report,
+            "next_step": "Show the user the script, fix anything that reads badly "
+                         "aloud, then call queue_podcast with pdf=<the PDF's full path>."}
+
+
+@mcp.tool()
 def validate_briefing(script: str, pdf: str | None = None) -> dict:
     """Check a briefing script against its PDF without queueing or making audio.
 

@@ -148,6 +148,14 @@ Separately, and worth fixing now whatever happens with this feature: the missing
 
 ## 13. PowerPoint users: extract-notes (fast follow, v1.1)
 
+**Done** (step 5, `podcast_generator/notes.py`). Differences from the plan below:
+- Read with the standard library (`zipfile` + `ElementTree`), not `python-pptx`, which would have added lxml, Pillow and XlsxWriter just to read notes. So it needs no extra install. Untrusted input: parts over 20 MB and XML with a DOCTYPE are refused; 500-slide limit.
+- Square-bracket removal is always on (no flag), and reported.
+- Notes lines that would act as script markdown (headers, rules, `**Key:**` lines, italic-only lines, which would end the script) are made plain.
+- Refuses to overwrite an existing script; `--output` picks another name.
+- Also a connector tool, `extract_notes(pptx, include_hidden)`, which returns the script without writing a file, for Claude to review and queue with `pdf=`.
+- Checked against a deck built on PowerPoint's default template (via python-pptx in a scratch folder), not only the test fixture.
+
 High value for PowerPoint users, but deferred so its riskiest part (hidden-slide numbering) doesn't hold up the core feature.
 
 Many users will start from a PowerPoint deck with the narration in the speaker notes. The tool does not create the script; it only converts text that already exists.
@@ -199,4 +207,4 @@ Note: the notes-to-Word export and VBA macros also work but give poorer structur
    - `validate_briefing` returns `ok: false` with the errors instead of raising, since finding problems is its purpose. `inspect_briefing` returns a `script_skeleton` with one marker per page.
    - `list_podcasts` keeps `recent_audio` as it was and adds `recent_briefings`; `podcast_status` adds `kind` ("audio" or "video"), and for a video the subtitle path and the length from `.briefing.json`.
    - Server instructions now describe the briefing flow: ask for the path, inspect, write one section per page, queue with `pdf`.
-5. `extract-notes`.
+5. `extract-notes`. **Done.**
