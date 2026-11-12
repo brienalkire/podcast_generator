@@ -2,8 +2,8 @@
 
 A companion to [README.md](README.md) — that file gets you running in five
 minutes; this one covers everything else: how to write a script, the full
-CLI reference, the voice catalog, the Podcast Watch desktop app, using it
-from Claude Desktop (MCP), and troubleshooting.
+CLI reference, narrated briefings, the voice catalog, the Podcast Watch
+desktop app, using it from Claude Desktop (MCP), and troubleshooting.
 
 ## What this does
 
@@ -12,6 +12,10 @@ into an audio file (MP3 or WAV) using [Kokoro](https://github.com/hexgrad/kokoro
 a free, open-source text-to-speech model that runs entirely on your own
 machine via [`voxport`](https://github.com/brienalkire/voxport). No API key, no per-use cost, and
 (once the model is cached) no internet connection required.
+
+Given a PDF as well, it makes a narrated video instead: an MP4 that shows
+each page while its part of the script is read. See
+[Narrated briefings](#narrated-briefings-pdf-to-video).
 
 ## Writing a script
 
@@ -155,10 +159,21 @@ malformed `**Lexicon:**` file fails only that script.
 ### Narrated briefings (PDF to video)
 
 Give a script a PDF and it makes a narrated **MP4** instead of audio: each
-page is shown while its part of the script is read. You write the
-narration; the tool voices it and lines it up with the pages. For a
-complete example, see [examples/](examples/README.md): the PDF and script
-behind the introductory video linked from the README.
+page is shown while its part of the script is read. The tool voices the
+narration and lines it up with the pages. For a complete example, see
+[examples/](examples/README.md): the PDF and script behind the
+introductory video linked from the README.
+
+There are two ways to make one:
+
+- **Ask an AI assistant.** With the [connector](#using-it-from-claude-desktop-mcp),
+  ask Claude for "a narrated briefing video of this paper". It builds the
+  slides as a PDF, writes the narration for each page, and makes the
+  video. It can also narrate a PDF you already have. See
+  [Briefings from a chat](#briefings-from-a-chat) for what it needs.
+- **Build the pieces yourself**: export your slides to PDF and write the
+  script as described below, or pull the narration from
+  [PowerPoint speaker notes](#from-powerpoint-speaker-notes).
 
 Needs the `briefing` extra and ffmpeg (with H.264, which the usual
 Windows builds have):
@@ -457,7 +472,9 @@ MP3 is. Everything still runs on your machine, using the same folders and
    uv tool install "podcast-generator[mcp]"
    ```
 
-   or `pipx install "podcast-generator[mcp]"`. Both put the commands in
+   For [narrated briefings](#narrated-briefings-pdf-to-video) too, install
+   `"podcast-generator[mcp,briefing]"` instead, and have ffmpeg on `PATH`.
+   Or `pipx install "podcast-generator[mcp]"`. Both put the commands in
    `~/.local/bin` (`%USERPROFILE%\.local\bin` on Windows). A regular virtual
    environment works too, as long as it stays where it is.
 2. Print the Claude Desktop config for that install:
@@ -500,7 +517,7 @@ After restarting Claude Desktop:
 - **Settings → Developer** lists `podcast-generator`. It should say it's
   running. If it says it failed, see "Troubleshooting" below.
 - **In a chat**, open the connectors (or tools) menu in the chat box, from
-  the `+` or tools button. `podcast-generator` is listed with its six tools,
+  the `+` or tools button. `podcast-generator` is listed with its nine tools,
   and its switch should be on.
 - **A quick test**: start a new chat and ask
 
@@ -528,6 +545,8 @@ the tools. For example:
 - "What podcasts have I made recently? Did any fail?"
 - "Requeue science-ep01-tides with replace=true and generate it again."
 - "Turn the podcast watch on." (Windows, once the watch is set up.)
+- "Make a narrated briefing video of this paper, about five minutes."
+  (Then attach the paper. See [Briefings from a chat](#briefings-from-a-chat).)
 - "Narrate my deck at C:\Users\me\Documents\q3-review.pdf as a
   briefing video, about a minute per slide." (Needs the `briefing` extra
   and ffmpeg; see [Narrated briefings](#narrated-briefings-pdf-to-video).)
@@ -563,6 +582,27 @@ What to expect:
 - **Names are unique.** Queuing a name that already has a script or audio
   is refused unless you say to replace it.
 
+### Briefings from a chat
+
+The connector reads a PDF from its path on your computer; it can't see a
+file attached to the chat, and it doesn't make slides.
+
+- **Your own PDF:** give Claude its full path. Claude can read an attached
+  copy to write the narration, but it still needs the path to make the
+  video.
+- **Slides Claude makes:** Claude builds the deck itself, saves the PDF to
+  a folder on your computer, and passes that path to the connector. This
+  needs Claude to be able to write files on your computer (for example,
+  through a folder you've given it access to). If it can only create files
+  in its own workspace, save the PDF it gives you, then tell Claude where
+  you put it.
+
+Either way, Claude reads each page with `inspect_briefing`, writes one
+section per page, checks the result with `validate_briefing`, and queues
+it with the PDF's path. The queue keeps its own copy of the PDF, so you
+can move or edit the original afterwards. The video, its subtitles and
+its timing file go to the outputs folder.
+
 ### Upgrading
 
 Quit Claude Desktop fully first, because it keeps `podcast-generator-mcp`
@@ -575,6 +615,11 @@ uv tool upgrade podcast-generator
 
 (or `pipx upgrade podcast-generator`), and start Claude Desktop again. The
 config doesn't change, since the command path stays the same.
+
+To add briefings to an existing install, quit Claude Desktop and run
+`uv tool install --force "podcast-generator[mcp,briefing]"`. A forced
+reinstall removes spaCy's English model, which downloads again on the next
+conversion (see "Offline use" on a machine without internet).
 
 ### Tools
 
@@ -590,9 +635,8 @@ config doesn't change, since the command path stays the same.
 | `list_podcasts` | Shows the installed version, the folders, whether the watch is on, what's in the connector's queue, what's waiting in the watch's inputs folder, and recent audio, briefings and failures. |
 | `set_watch` | Turns the scheduled watch on or off. This affects only the inputs folder, not the connector's queue. |
 
-For a briefing, Claude needs the PDF's location on disk: the connector
-can't see a file attached to the chat. Claude can read an attachment
-itself to write the narration, but give it the path too.
+For a briefing, Claude needs the PDF's location on disk; see
+[Briefings from a chat](#briefings-from-a-chat).
 
 Conversion never happens inside a tool call, because a long script takes
 minutes. After queuing a script, the AI calls `generate_now`, then follows
@@ -777,6 +821,20 @@ expected to hear.
 **MP3 write fails, mentions ffmpeg** — Your `soundfile`/libsndfile build
 doesn't have native MP3 support and `ffmpeg` isn't on `PATH`. Either
 install `ffmpeg`, or use `--format wav` (needs neither).
+
+**A briefing fails: "briefings need the briefing extra"** — Install it:
+`pip install "podcast-generator[briefing]"` (or, for the connector,
+`uv tool install --force "podcast-generator[mcp,briefing]"` with Claude
+Desktop quit).
+
+**A briefing fails: "briefings need ffmpeg" or "can't encode H.264"** —
+Install a full ffmpeg build and put it on `PATH` (on Windows,
+`winget install ffmpeg`). Restart Claude Desktop afterwards so the
+connector sees the new `PATH`.
+
+**Claude says it can't find the PDF** — The connector can't see chat
+attachments. Give Claude the PDF's full path on your computer; see
+[Briefings from a chat](#briefings-from-a-chat).
 
 **First run on a new machine hangs or fails trying to reach the
 network** — A fresh Python environment downloads a small spaCy model (`en_core_web_sm`) on first use, separately from the

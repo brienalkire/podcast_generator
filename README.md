@@ -1,6 +1,7 @@
 # podcast_generator
 
-Converts markdown podcast scripts into spoken-word audio files, using
+Converts markdown podcast scripts into spoken-word audio files, or into
+narrated videos of PDF slides, using
 [`voxport`](https://github.com/brienalkire/voxport)'s `KokoroDirectTTS` for
 local, offline-capable text-to-speech. No API key, no per-use cost, and
 your scripts never leave your machine.
@@ -10,7 +11,8 @@ your scripts never leave your machine.
   an inputs folder (cloud-synced, if you like), controlled from the small
   **Podcast Watch** app (`podcast-watch`).
 - **`podcast-generator-mcp`**: an MCP server, so Claude Desktop or another
-  MCP client can write, queue and convert podcasts for you.
+  MCP client can write, queue and convert podcasts and narrated briefings
+  for you.
 
 **See it first:** a six-minute
 [introductory video](https://github.com/brienalkire/podcast_generator/releases/download/v0.5.0/podcast-generator-intro.mp4)
@@ -30,7 +32,10 @@ Podcast Watch app and scheduled drop-folder mode are Windows-only.
 ```
 pip install podcast-generator             # command line and Podcast Watch
 pip install "podcast-generator[mcp]"      # plus the MCP server
+pip install "podcast-generator[briefing]" # plus narrated briefings (PDF to MP4)
 ```
+
+Extras combine: `pip install "podcast-generator[mcp,briefing]"`.
 
 The PyPI name is `podcast-generator`, with a hyphen; the Python package
 is `podcast_generator`, with an underscore. A virtual environment is
@@ -46,6 +51,8 @@ Not installed for you:
 
 - **ffmpeg**: needed for MP3 output unless your `soundfile`/libsndfile
   build has native MP3 support. Put it on `PATH`. WAV output needs neither.
+  Narrated briefings always need it, with H.264 support (`libx264`), which
+  the usual builds include.
 - **Kokoro model weights and spaCy's `en_core_web_sm`**: downloaded
   automatically on the first run.
 
@@ -132,7 +139,10 @@ the speaker's name (`Maya: Welcome back.`). Each speaker is read in their
 own voice, with a short pause between turns. See
 [Two or more speakers](https://github.com/brienalkire/podcast_generator/blob/main/MANUAL.md#two-or-more-speakers-dialogue).
 
-**Narrated briefings**: add `**Briefing:** deck.pdf` and a `## Page N`
+**Narrated briefings**: the easiest way is to ask Claude Desktop, with the
+connector, for "a narrated briefing video of this paper": it builds the
+slides as a PDF, writes the narration and makes the video. To do it
+yourself, add `**Briefing:** deck.pdf` and a `## Page N`
 line before each page's narration, and the script makes an MP4 that shows
 each page while it's read. Needs `pip install "podcast-generator[briefing]"`
 and ffmpeg. Narration already in PowerPoint speaker notes?
@@ -212,7 +222,8 @@ a similar tool instead.
 
 `podcast-generator-mcp` is an [MCP](https://modelcontextprotocol.io) server,
 so an AI app such as Claude Desktop can make podcasts directly: write a
-script, queue it, convert it, and check on it, all from the chat. It runs
+script, queue it, convert it, and check on it, all from the chat. With the
+`briefing` extra it makes narrated briefing videos the same way. It runs
 locally and uses the same folders and `.env` as everything else.
 
 1. Install it somewhere that stays put. A [uv](https://docs.astral.sh/uv/)
@@ -222,6 +233,7 @@ locally and uses the same folders and `.env` as everything else.
    uv tool install "podcast-generator[mcp]"
    ```
 
+   Use `"podcast-generator[mcp,briefing]"` for briefings too.
    (`pipx install "podcast-generator[mcp]"` is the same. A virtual
    environment works too, as long as you don't delete it.)
 2. Print the Claude Desktop config for that install:
