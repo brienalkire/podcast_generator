@@ -121,9 +121,10 @@ def test_synthesize_pages_times_each_page():
     pages = [(1, [(None, "Hello.")]), (2, [])]
     engine = FakeEngine()
     voices = g.ScriptVoices("", "x.md", g.parse_args(["podcast-generator"]))
-    (p1, audio1, hold1), (p2, audio2, hold2) = g.synthesize_pages(engine, pages, voices)
+    (p1, audio1, hold1, spans1), (p2, audio2, hold2, spans2) = g.synthesize_pages(engine, pages, voices)
     assert hold1 == pytest.approx(10 / engine.sample_rate + g.INTER_PAGE_PAUSE_SECONDS)
-    assert audio2 is None and hold2 == g.SILENT_HOLD_SECONDS
+    assert spans1 == [(0.0, 0.1, "Hello.")]
+    assert audio2 is None and hold2 == g.SILENT_HOLD_SECONDS and spans2 == []
 
 
 def test_preview_prints_table_and_saves_nothing(tmp_path, monkeypatch, capsys):

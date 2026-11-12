@@ -16,6 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   case-sensitive. A spoken form can be an exact pronunciation in Kokoro's
   phoneme alphabet: `[Kokoro](/kˈOkəɹO/)`. `queue_podcast` checks a
   script's lexicon before queueing it.
+- **Narrated briefings (PDF to MP4).** A script with a `**Briefing:**
+  deck.pdf` line and `## Page N` sections makes a 1920×1080 MP4 showing
+  each page while its section is read, plus `.srt` subtitles (also muxed
+  in) and a `.briefing.json` with per-page timing. Works from the command
+  line (`--pdf` overrides the line) and the inputs folder, where the PDF is
+  archived with its script. Strict page checks fail before any audio is
+  made. Needs the new `briefing` extra (pypdfium2) and ffmpeg with libx264.
 - **`--preview`** synthesizes one script and prints its timing without
   saving audio or archiving the script.
 

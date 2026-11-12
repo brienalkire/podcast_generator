@@ -48,6 +48,10 @@ dependencies = [
 [project.optional-dependencies]
 # podcast-generator-mcp: use it from Claude Desktop or another MCP client.
 mcp = ["mcp>=2.3,<3"]
+# Briefings: a PDF plus a narration script, made into an MP4. Also needs
+# ffmpeg with libx264 on PATH. pypdfium2 is Apache-2.0/BSD-3 (PDFium itself
+# is BSD-style), unlike PyMuPDF's AGPL.
+briefing = ["pypdfium2>=4.30"]
 
 [project.scripts]
 podcast-generator = "podcast_generator.generator:cli"

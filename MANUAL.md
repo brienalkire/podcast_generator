@@ -152,6 +152,70 @@ A malformed `lexicon.txt` or `--lexicon` file stops the run before
 anything is converted, with the file and line number. A missing or
 malformed `**Lexicon:**` file fails only that script.
 
+### Narrated briefings (PDF to video)
+
+Give a script a PDF and it makes a narrated **MP4** instead of audio: each
+page is shown while its part of the script is read. You write the
+narration; the tool voices it and lines it up with the pages.
+
+Needs the `briefing` extra and ffmpeg (with H.264, which the usual
+Windows builds have):
+
+```
+pip install "podcast-generator[briefing]"
+```
+
+Add a `**Briefing:**` line naming the PDF (relative to the script's
+folder), and start each page's narration with `## Page N`, numbered as in
+the PDF:
+
+```markdown
+# Quarterly review
+
+**Briefing:** q3-review.pdf
+**Voices:** Maya=af_heart, Theo=bm_george
+
+## Page 1
+
+Maya: Welcome to the quarterly review.
+
+## Page 2
+
+Theo: Costs went down this quarter.
+
+## Page 4 (skip)
+
+## Page 5
+
+Maya: That's the summary.
+```
+
+- Each page stays up for its narration plus a short pause (0.75 s). A page
+  with no section (page 3 above) or an empty one is shown silently for 3
+  seconds, with a warning. `(skip)` leaves a page out of the video.
+- The rules are strict, so a mismatch never produces a wrong video: no
+  markers, a page the PDF doesn't have, pages out of order or repeated,
+  text before the first marker, or a header like `## Slide 2` stops the
+  script with a message saying what to fix.
+- Everything else works as in any script: dialogue, the lexicon, the
+  end-of-script italic line. A speaker carries over from one page to the
+  next.
+- Output, in the outputs folder: `<name>.mp4` (1920×1080; pages are
+  letterboxed to fit), `<name>.srt` subtitles (also inside the MP4, as a
+  track you can turn on), and `<name>.briefing.json` with the timing of
+  each page.
+- In the inputs folder, drop the script and its PDF together. After a
+  successful conversion both move to the archive (the PDF stays while
+  another waiting script still names it). If the script fails, the PDF
+  stays in the inputs folder for the corrected script.
+- `podcast-generator deck.md --pdf other.pdf` uses a different PDF, or
+  makes a briefing of a script without a `**Briefing:**` line.
+- Check the timing first with `--preview`, which prints how long each page
+  is shown without making the video.
+
+PDFs over 200 MB or 500 pages are refused, as are password-protected ones.
+Only the pages are drawn; nothing embedded in the PDF is run.
+
 ## Full CLI reference
 
 ```
@@ -166,6 +230,7 @@ podcast-generator [input_script.md] [options]
 | `--speed FLOAT` | Speaking rate multiplier (default `1.0`; `0.9` slower, `1.1` faster). |
 | `--format {mp3,wav}` | Output format (default `mp3`). |
 | `--output PATH` | Output file path. Only used in single-file mode; ignored in batch mode. |
+| `--pdf FILE` | Single-file mode only: make a [narrated briefing](#narrated-briefings-pdf-to-video) MP4 of this PDF. Overrides the script's `**Briefing:**` line. |
 | `--preview` | Single-file mode only: synthesize the script and print how long it runs, without saving audio or archiving it. A script with `## Page N` markers gets one row per page. |
 | `--lexicon FILE` | Extra [pronunciation lexicon](#pronunciation-fixes-lexicon) for this run, on top of `lexicon.txt` and any script's `**Lexicon:**` file. |
 | `--wait` | If another conversion run is in progress, wait for it to finish (up to 2 hours) instead of exiting. |

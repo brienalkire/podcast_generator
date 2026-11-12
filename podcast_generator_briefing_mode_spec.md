@@ -184,6 +184,14 @@ Note: the notes-to-Word export and VBA macros also work but give poorer structur
 
 1. Lexicon, including the phoneme-syntax check. Releasable on its own. **Done.**
 2. Page-event parsing in `_spoken_lines` and the `synthesize_turns` refactor, with `--preview` showing the timing table. No ffmpeg or PDF needed to test. **Done:** `split_pages`, `plan_pages`, `synthesize_pages`, `preview_job`. Until step 3 there is no PDF, so `--preview` runs pages up to the highest marker; `plan_pages(page_count=...)` takes the PDF's count once it exists. Defaults chosen: 0.75 s between pages, 3 s silent hold. Note: Kokoro output is not bit-identical between runs, so audio regression tests compare call sequences, not bytes.
-3. Rasterizing, MP4 assembly, subtitles, the `**Briefing:**` line, and folder-watch support.
+3. Rasterizing, MP4 assembly, subtitles, the `**Briefing:**` line, and folder-watch support. **Done** (`podcast_generator/briefing.py`). Decisions made while building it:
+   - Pages are rendered at the scale that fits 1920×1080 and letterboxed onto a black canvas in numpy, so every frame ffmpeg sees is the same size. Written as PNG with only `zlib` (no Pillow dependency).
+   - Each page lasts a whole number of frames (rounded up), and its audio is padded to exactly that, so audio and video can't drift. Verified: frame count and audio duration match exactly.
+   - x264 at CRF 20, `-tune stillimage`, 30 fps; AAC 160 kbps; `+faststart`. Written to a `.part` name and renamed when finished.
+   - Subtitles: per-turn timing is exact; within a turn, cues are split at sentence ends (then words, max 84 chars) and timed in proportion to length. Sidecar `.srt` plus a `mov_text` track.
+   - The PDF is rendered and ffmpeg checked before synthesis, so those failures take seconds.
+   - In the inputs folder, a converted briefing's PDF is archived with the script, unless another waiting script names it. A failed briefing's PDF stays in inputs.
+   - `--pdf` is single-file only; in batch mode the `**Briefing:**` line is the only way.
+   - Open: `podcast_status` and `list_podcasts` still look only for audio files (step 4).
 4. MCP: `inspect_briefing`, `validate_briefing`, and `queue_podcast(pdf=...)`.
 5. `extract-notes`.

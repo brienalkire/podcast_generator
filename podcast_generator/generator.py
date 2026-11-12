@@ -77,6 +77,7 @@ Defaults:
 
 import argparse
 import glob
+import hashlib
 import logging
 import os
 import shutil
@@ -663,6 +664,25 @@ def apply_lexicon(text, lexicon):
     return pattern.sub(lambda m: lexicon[m.group(0)], text)
 
 
+# A briefing script names its PDF:  **Briefing:** deck.pdf  (relative to the
+# script's folder, or absolute). The script then makes an MP4, not audio.
+briefing_meta_pattern = re.compile(r"^\s*\*\*\s*Briefing\s*:\s*\*\*\s*(.*?)\s*$", re.IGNORECASE)
+
+
+def briefing_pdf_path(raw_text, input_path, cli_pdf=None):
+    """The PDF a script is a briefing for, or None for an ordinary script.
+
+    --pdf (`cli_pdf`) wins over the script's **Briefing:** line.
+    """
+    if cli_pdf:
+        return cli_pdf
+    for line in raw_text.splitlines():
+        match = briefing_meta_pattern.match(line)
+        if match and match.group(1):
+            return os.path.join(os.path.dirname(os.path.abspath(input_path)), match.group(1))
+    return None
+
+
 def write_audio(full_audio, out_path, fmt, sample_rate):
     """Write `full_audio` to `out_path` in the requested format.
 
@@ -733,6 +753,32 @@ def archive_script(input_path):
     return dest
 
 
+def archive_briefing_pdf(pdf_path):
+    """Move a converted briefing's PDF from INPUT_DIR into ARCHIVE_DIR.
+
+    Only a PDF in INPUT_DIR itself, and only once no script still waiting
+    there names it, so two briefings can share one PDF. A failed briefing's
+    PDF stays put, ready for the corrected script.
+    """
+    if os.path.dirname(os.path.abspath(pdf_path)) != os.path.abspath(INPUT_DIR):
+        return None
+    if not os.path.isfile(pdf_path):
+        return None
+    for script in glob.glob(os.path.join(INPUT_DIR, "*.md")):
+        try:
+            with open(script, "r", encoding="utf-8") as f:
+                named = briefing_pdf_path(f.read(), script)
+        except (OSError, UnicodeDecodeError):
+            continue
+        if named and os.path.normcase(os.path.abspath(named)) == os.path.normcase(
+                os.path.abspath(pdf_path)):
+            return None
+    os.makedirs(ARCHIVE_DIR, exist_ok=True)
+    dest = _unique_destination(ARCHIVE_DIR, os.path.basename(pdf_path))
+    shutil.move(pdf_path, dest)
+    return dest
+
+
 def archive_failed_script(input_path, error_message):
     """Move a script that failed to convert into ARCHIVE_DIR/failed/.
 
@@ -799,10 +845,22 @@ def resolve_jobs(args):
             output_path = args.output
         else:
             base = os.path.splitext(os.path.basename(input_path))[0]
-            output_path = os.path.join(OUTPUT_DIR, base + "." + fmt)
+            ext = "mp4" if _is_briefing(input_path, args) else fmt
+            output_path = os.path.join(OUTPUT_DIR, base + "." + ext)
         jobs.append((input_path, output_path))
 
     return jobs
+
+
+def _is_briefing(input_path, args):
+    """True if this script makes a video (an unreadable one is left to fail later)."""
+    if args.pdf:
+        return True
+    try:
+        with open(input_path, "r", encoding="utf-8") as f:
+            return briefing_pdf_path(f.read(), input_path) is not None
+    except (OSError, UnicodeDecodeError):
+        return False
 
 
 class ScriptVoices:
@@ -819,18 +877,22 @@ class ScriptVoices:
         self.lang_code = args.lang_code
 
 
-def synthesize_turns(engine, turns, voices):
+def synthesize_turns(engine, turns, voices, spans=None):
     """Speak [(speaker, text), ...] and return one audio array.
 
     Each turn is read in its speaker's voice (the narrator's for None),
     with a short pause between turns. The lexicon is applied here, after
     the markdown cleanup, so a phoneme override like [Kokoro](/kˈOkəɹO/)
     reaches Kokoro instead of being stripped as a link.
+
+    With a `spans` list, (start, end, text) in seconds is appended for each
+    turn, with the text as written (before the lexicon), for subtitles.
     """
     import numpy as np
 
     pause = np.zeros(int(engine.sample_rate * TURN_PAUSE_SECONDS), dtype=np.float32)
     pieces = []
+    at = 0
     for speaker, text in turns:
         turn_voice = voices.speakers[speaker] if speaker else voices.voice
         # The accent code must match the voice; derive it from the voice's
@@ -838,17 +900,30 @@ def synthesize_turns(engine, turns, voices):
         lang_code = voices.lang_code if voices.lang_code else turn_voice[0]
         if pieces:
             pieces.append(pause)
-        pieces.append(engine.synthesize(apply_lexicon(text, voices.lexicon), turn_voice,
-                                        speed=voices.speed, lang_code=lang_code))
+            at += len(pause)
+        audio = engine.synthesize(apply_lexicon(text, voices.lexicon), turn_voice,
+                                  speed=voices.speed, lang_code=lang_code)
+        pieces.append(audio)
+        if spans is not None:
+            spans.append((at / engine.sample_rate, (at + len(audio)) / engine.sample_rate, text))
+        at += len(audio)
     return pieces[0] if len(pieces) == 1 else np.concatenate(pieces)
 
 
 def process_job(engine, input_path, output_path, args):
-    """Convert a single script to audio. Raises on any failure."""
+    """Convert a single script to audio, or a briefing to video.
+
+    Returns the briefing's PDF path (None for an ordinary script). Raises
+    on any failure.
+    """
     with open(input_path, "r", encoding="utf-8") as f:
         raw_text = f.read()
 
     voices = ScriptVoices(raw_text, input_path, args)
+    pdf_path = briefing_pdf_path(raw_text, input_path, args.pdf)
+    if pdf_path:
+        process_briefing(engine, raw_text, input_path, pdf_path, output_path, voices)
+        return pdf_path
     if voices.speakers:
         turns = split_turns(raw_text, voices.speakers)
     else:
@@ -862,24 +937,114 @@ def process_job(engine, input_path, output_path, args):
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
     full_audio = synthesize_turns(engine, turns, voices)
     write_audio(full_audio, output_path, args.response_format, engine.sample_rate)
+    return None
 
 
 def synthesize_pages(engine, pages, voices):
-    """Speak each planned page: [(page, audio or None, hold seconds), ...].
+    """Speak each planned page: [(page, audio or None, hold, spans), ...].
 
     A page is held for its narration plus INTER_PAGE_PAUSE_SECONDS, or for
-    SILENT_HOLD_SECONDS when it has nothing to say (audio None).
+    SILENT_HOLD_SECONDS when it has nothing to say (audio None). `spans` is
+    each turn's (start, end, text), in seconds from the page's start.
     """
     results = []
     for page, turns in pages:
+        spans = []
         if turns:
             print(f"Page {page}...")
-            audio = synthesize_turns(engine, turns, voices)
+            audio = synthesize_turns(engine, turns, voices, spans)
             hold = len(audio) / engine.sample_rate + INTER_PAGE_PAUSE_SECONDS
         else:
             audio, hold = None, SILENT_HOLD_SECONDS
-        results.append((page, audio, hold))
+        results.append((page, audio, hold, spans))
     return results
+
+
+def briefing_outputs(output_path):
+    """The subtitle and metadata files written next to a briefing's MP4."""
+    base = os.path.splitext(output_path)[0]
+    return base + ".srt", base + ".briefing.json"
+
+
+def process_briefing(engine, raw_text, input_path, pdf_path, output_path, voices):
+    """Make a briefing's MP4, with .srt subtitles and a .briefing.json beside it."""
+    import tempfile
+
+    import numpy as np
+    import soundfile as sf
+
+    from . import briefing
+
+    count = briefing.page_count(pdf_path)
+    pages, warnings = plan_pages(split_pages(raw_text, voices.speakers), count)
+    for warning in warnings:
+        print(f"Warning: {warning}")
+    # Before the slow part, so a missing ffmpeg fails in seconds.
+    briefing.check_ffmpeg()
+    print(f"Briefing: {os.path.basename(pdf_path)}, {count} pages, {len(pages)} shown.")
+
+    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="podcast_briefing_") as work:
+        # Render first too: a page PDFium can't draw fails before synthesis.
+        images = briefing.render_pages(pdf_path, [page for page, _ in pages], work)
+        timed = synthesize_pages(engine, pages, voices)
+
+        # Each page lasts a whole number of video frames, and its audio is
+        # padded to exactly that, so sound and pictures never drift apart.
+        rate = engine.sample_rate
+        parts, frames, spans, timing = [], [], [], []
+        start_frame = 0
+        for (page, audio, hold, page_spans), (_, turns) in zip(timed, pages):
+            count_frames = briefing.frames_for(hold)
+            first = round(start_frame * rate / briefing.FPS)
+            last = round((start_frame + count_frames) * rate / briefing.FPS)
+            part = np.zeros(last - first, dtype=np.float32)
+            if audio is not None:
+                part[:min(len(audio), len(part))] = audio[:len(part)]
+            parts.append(part)
+            frames.append((images[page], count_frames))
+            start = start_frame / briefing.FPS
+            spans += [(start + s, start + e, text) for s, e, text in page_spans]
+            timing.append({
+                "page": page,
+                "start_seconds": round(start, 3),
+                "shown_seconds": round(count_frames / briefing.FPS, 3),
+                "speech_seconds": round(len(audio) / rate, 3) if audio is not None else 0,
+                "words": sum(len(text.split()) for _, text in turns),
+            })
+            start_frame += count_frames
+
+        wav_path = os.path.join(work, "narration.wav")
+        sf.write(wav_path, np.concatenate(parts), rate, subtype="PCM_16")
+        cues = briefing.subtitle_cues(spans)
+        work_srt = os.path.join(work, "subtitles.srt") if cues else None
+        if work_srt:
+            briefing.write_srt(cues, work_srt)
+        briefing.assemble_mp4(frames, wav_path, work_srt, output_path, work)
+
+        srt_path, json_path = briefing_outputs(output_path)
+        if work_srt:
+            shutil.copyfile(work_srt, srt_path)
+        elif os.path.exists(srt_path):  # left from an earlier version
+            os.remove(srt_path)
+
+    briefing.write_metadata(json_path, {
+        "tool": "podcast-generator",
+        "version": __version__,
+        "script": os.path.basename(input_path),
+        "script_sha256": hashlib.sha256(raw_text.encode("utf-8")).hexdigest(),
+        "pdf": os.path.basename(pdf_path),
+        "pdf_sha256": briefing.sha256(pdf_path),
+        "pdf_pages": count,
+        "voice": voices.voice,
+        "speakers": voices.speakers,
+        "speed": voices.speed,
+        "video": {"width": briefing.WIDTH, "height": briefing.HEIGHT, "fps": briefing.FPS},
+        "total_seconds": round(start_frame / briefing.FPS, 3),
+        "pages": timing,
+    })
+    print(f"Total: {_clock(start_frame / briefing.FPS)}. Subtitles: "
+          f"{srt_path if cues else 'none'}.")
 
 
 def _clock(seconds):
@@ -896,12 +1061,18 @@ def preview_job(engine, input_path, args):
     with open(input_path, "r", encoding="utf-8") as f:
         raw_text = f.read()
     voices = ScriptVoices(raw_text, input_path, args)
+    pdf_path = briefing_pdf_path(raw_text, input_path, args.pdf)
 
-    if has_page_markers(raw_text):
-        pages, warnings = plan_pages(split_pages(raw_text, voices.speakers))
+    if pdf_path or has_page_markers(raw_text):
+        count = None
+        if pdf_path:
+            from . import briefing
+            count = briefing.page_count(pdf_path)
+            print(f"Briefing: {os.path.basename(pdf_path)}, {count} pages.")
+        pages, warnings = plan_pages(split_pages(raw_text, voices.speakers), count)
         for warning in warnings:
             print(f"Warning: {warning}")
-        timed = synthesize_pages(engine, pages, voices)
+        timed = [t[:3] for t in synthesize_pages(engine, pages, voices)]
         words = {page: sum(len(text.split()) for _, text in turns) for page, turns in pages}
     else:
         turns = (split_turns(raw_text, voices.speakers) if voices.speakers
@@ -918,7 +1089,7 @@ def preview_job(engine, input_path, args):
         speech = f"{len(audio) / engine.sample_rate:6.1f}s" if audio is not None else "silent"
         print(f"{page:>4}  {words[page]:>5}  {speech:>7}  {hold:6.1f}s  {_clock(start):>6}")
         start += hold
-    shown = f"{len(timed)} page(s), " if has_page_markers(raw_text) else ""
+    shown = f"{len(timed)} page(s), " if timed[0][0] != "-" else ""
     print(f"Total: {shown}{_clock(start)}.")
 
 
@@ -983,6 +1154,14 @@ def parse_args(argv):
         help="Extra pronunciation lexicon for this run (lines of "
              "'written form = spoken form'). Applied on top of lexicon.txt "
              "in the home folder and any script's **Lexicon:** file.",
+    )
+    parser.add_argument(
+        "--pdf",
+        metavar="FILE",
+        default=None,
+        help="Single-file mode only: make a narrated MP4 of this PDF, one "
+             "page per '## Page N' section of the script. Overrides the "
+             "script's **Briefing:** line.",
     )
     parser.add_argument(
         "--preview",
@@ -1052,6 +1231,10 @@ def run(args):
         print("Error: --preview needs a script: podcast-generator SCRIPT.md --preview",
               file=sys.stderr)
         return 1
+    if args.pdf and not args.input_path:
+        print("Error: --pdf needs a script: podcast-generator SCRIPT.md --pdf DECK.pdf "
+              "(in the inputs folder, use a **Briefing:** line instead).", file=sys.stderr)
+        return 1
     if args.output and not args.input_path:
         print("Note: --output is ignored in batch mode; audio is written to "
               "the outputs folder using each script's name.", file=sys.stderr)
@@ -1119,7 +1302,7 @@ def run(args):
     for input_path, output_path in jobs:
         print(f"\n=== {os.path.basename(input_path)} -> {output_path} ===")
         try:
-            process_job(engine, input_path, output_path, args)
+            pdf_path = process_job(engine, input_path, output_path, args)
         except Exception as exc:  # noqa: BLE001 - keep going on the next script
             print(f"Error converting {input_path}: {exc}", file=sys.stderr)
             archived_to = archive_failed_script(input_path, str(exc))
@@ -1127,10 +1310,14 @@ def run(args):
                 print(f"Moved failed script to: {archived_to}", file=sys.stderr)
             failed.append(input_path)
             continue
-        print(f"Saved audio to: {output_path}")
+        print(f"Saved {'video' if pdf_path else 'audio'} to: {output_path}")
         archived_to = archive_script(input_path)
         if archived_to:
             print(f"Archived script to: {archived_to}")
+        if pdf_path:
+            pdf_archived_to = archive_briefing_pdf(pdf_path)
+            if pdf_archived_to:
+                print(f"Archived PDF to: {pdf_archived_to}")
         succeeded.append(output_path)
 
     print(f"\nDone. {len(succeeded)} succeeded, {len(failed)} failed.")
