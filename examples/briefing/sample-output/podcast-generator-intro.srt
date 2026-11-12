@@ -271,122 +271,142 @@ tells you what to fix.
 It will not guess, so you never get a video where the words and the pages disagree.
 
 69
-00:03:44,867 --> 00:03:47,436
-Here is how to make one, in four steps.
+00:03:44,867 --> 00:03:46,361
+Here is how to make one.
 
 70
-00:03:47,436 --> 00:03:52,773
-First, install the briefing extra, and make sure the free video tool F F M peg is
+00:03:46,361 --> 00:03:49,599
+Each step can be done by you, or by an AI assistant.
 
 71
-00:03:52,773 --> 00:03:53,432
-available.
+00:03:49,599 --> 00:03:54,642
+First, a one-time setup: install the briefing extra, and make sure the free video
 
 72
-00:03:53,432 --> 00:03:55,672
-Second, export your slides to PDF.
+00:03:54,642 --> 00:03:56,386
+tool F F M peg is available.
 
 73
-00:03:55,672 --> 00:04:00,349
-Third, write the narration, with a page marker before each page's text.
+00:03:56,386 --> 00:03:57,507
+Second, get a PDF.
 
 74
-00:04:00,349 --> 00:04:05,686
-If your narration is already in PowerPoint speaker notes, one command extracts it
+00:03:57,507 --> 00:04:01,305
+Export your own slides, or ask an assistant to make the deck.
 
 75
-00:04:05,686 --> 00:04:07,333
-into a ready-made script.
+00:04:01,305 --> 00:04:05,726
+Third, write the narration, with a page marker before each page's text.
 
 76
-00:04:07,333 --> 00:04:08,585
-Fourth, convert it.
+00:04:05,726 --> 00:04:07,344
+You can write it yourself.
 
 77
-00:04:08,585 --> 00:04:13,987
-Run the command, or drop the script and the PDF into the watch folder together, or
+00:04:07,344 --> 00:04:12,014
+An assistant with the connector can read each page of the PDF and write the
 
 78
-00:04:13,987 --> 00:04:16,688
-ask your AI assistant to narrate the PDF.
+00:04:12,014 --> 00:04:13,135
+narration for you.
 
 79
-00:04:16,688 --> 00:04:19,917
-Use the preview option to check the timing first.
+00:04:13,135 --> 00:04:18,241
+And if your narration is already in PowerPoint speaker notes, one command extracts
 
 80
-00:04:20,667 --> 00:04:23,343
-Before you install, here is what you need.
+00:04:18,241 --> 00:04:19,984
+it into a ready-made script.
 
 81
-00:04:23,343 --> 00:04:26,401
-First, Python, version three point ten or later.
+00:04:19,984 --> 00:04:21,167
+Fourth, convert it.
 
 82
-00:04:26,401 --> 00:04:31,626
-Python does not come with Claude or Claude Desktop, so install it yourself, or use
+00:04:21,167 --> 00:04:26,335
+Run the command, drop the script and the PDF into the watch folder together, or let
 
 83
-00:04:31,626 --> 00:04:35,258
-an installer such as U V, which can fetch Python for you.
+00:04:26,335 --> 00:04:28,266
+the assistant queue it for you.
 
 84
-00:04:35,258 --> 00:04:40,419
-Second, about two gigabytes of disk space for the speech model and its libraries.
+00:04:28,266 --> 00:04:31,317
+Use the preview option to check the timing first.
 
 85
-00:04:40,419 --> 00:04:44,497
-It runs on an ordinary processor, so no graphics card is needed.
+00:04:32,067 --> 00:04:34,743
+Before you install, here is what you need.
 
 86
-00:04:44,497 --> 00:04:49,467
-Third, F F M peg, which is usually needed for MP3 output and always needed for
+00:04:34,743 --> 00:04:37,801
+First, Python, version three point ten or later.
 
 87
-00:04:49,467 --> 00:04:50,678
-narrated briefings.
+00:04:37,801 --> 00:04:43,026
+Python does not come with Claude or Claude Desktop, so install it yourself, or use
 
 88
-00:04:50,678 --> 00:04:55,202
-The first run needs an internet connection to download the voice model.
+00:04:43,026 --> 00:04:46,658
+an installer such as U V, which can fetch Python for you.
 
 89
-00:04:55,202 --> 00:04:57,560
-After that, everything works offline.
+00:04:46,658 --> 00:04:51,819
+Second, about two gigabytes of disk space for the speech model and its libraries.
 
 90
-00:04:57,560 --> 00:05:02,848
-The Podcast Watch app is for Windows, though the command line runs on other systems
+00:04:51,819 --> 00:04:55,897
+It runs on an ordinary processor, so no graphics card is needed.
 
 91
-00:05:02,848 --> 00:05:03,103
-too.
+00:04:55,897 --> 00:05:00,867
+Third, F F M peg, which is usually needed for MP3 output and always needed for
 
 92
-00:05:03,103 --> 00:05:08,392
-And you only need Claude Desktop, or a similar app, if you want the chat connector.
+00:05:00,867 --> 00:05:02,078
+narrated briefings.
 
 93
-00:05:09,167 --> 00:05:12,506
-To get started, install podcast generator with pip.
+00:05:02,078 --> 00:05:06,602
+The first run needs an internet connection to download the voice model.
 
 94
-00:05:12,506 --> 00:05:17,547
-Add the optional extras if you want the chat connector or narrated briefings.
+00:05:06,602 --> 00:05:08,960
+After that, everything works offline.
 
 95
-00:05:17,547 --> 00:05:22,981
-Then try the examples folder, which holds the script and PDF behind this video, and
+00:05:08,960 --> 00:05:14,248
+The Podcast Watch app is for Windows, though the command line runs on other systems
 
 96
-00:05:22,981 --> 00:05:24,552
-a sample podcast script.
+00:05:14,248 --> 00:05:14,503
+too.
 
 97
-00:05:24,552 --> 00:05:29,331
-The read me file is a quick start, and the manual covers everything else.
+00:05:14,503 --> 00:05:19,792
+And you only need Claude Desktop, or a similar app, if you want the chat connector.
 
 98
-00:05:29,331 --> 00:05:32,867
+00:05:20,567 --> 00:05:23,906
+To get started, install podcast generator with pip.
+
+99
+00:05:23,906 --> 00:05:28,947
+Add the optional extras if you want the chat connector or narrated briefings.
+
+100
+00:05:28,947 --> 00:05:34,381
+Then try the examples folder, which holds the script and PDF behind this video, and
+
+101
+00:05:34,381 --> 00:05:35,952
+a sample podcast script.
+
+102
+00:05:35,952 --> 00:05:40,731
+The read me file is a quick start, and the manual covers everything else.
+
+103
+00:05:40,731 --> 00:05:44,267
 The project is open source, at the address shown here.
 

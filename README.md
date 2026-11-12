@@ -12,9 +12,9 @@ your scripts never leave your machine.
 - **`podcast-generator-mcp`**: an MCP server, so Claude Desktop or another
   MCP client can write, queue and convert podcasts for you.
 
-**See it first:** a five-minute
+**See it first:** a six-minute
 [introductory video](https://github.com/brienalkire/podcast_generator/releases/download/v0.5.0/podcast-generator-intro.mp4)
-(MP4, about 10 MB), made by podcast_generator itself from the
+(MP4, about 11 MB), made by podcast_generator itself from the
 [example files](#examples).
 
 This README is a quick start. See

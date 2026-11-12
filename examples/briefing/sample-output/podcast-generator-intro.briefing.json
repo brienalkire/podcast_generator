@@ -2,9 +2,9 @@
   "tool": "podcast-generator",
   "version": "0.5.0",
   "script": "podcast-generator-intro.md",
-  "script_sha256": "8fb184d081aa1027b4e7ce13666403b715be65c8e7ef357fed82e19207cfc077",
+  "script_sha256": "4584629a47f40ba90f06ae862bd0916ecacbdaf4c06b36967441cb722f3b5344",
   "pdf": "podcast-generator-intro.pdf",
-  "pdf_sha256": "36e5d080e977f23ae0d9ca96def80ee4674d284d6048619f864dd22912702eae",
+  "pdf_sha256": "e87cd811055614efde5246f82dc723cda5fa9c102d9d7e0c2596331b63c69ac5",
   "pdf_pages": 11,
   "voice": "af_heart",
   "speakers": {},
@@ -14,7 +14,7 @@
     "height": 1080,
     "fps": 30
   },
-  "total_seconds": 333.633,
+  "total_seconds": 345.033,
   "pages": [
     {
       "page": 1,
@@ -75,20 +75,20 @@
     {
       "page": 9,
       "start_seconds": 224.867,
-      "shown_seconds": 35.8,
-      "speech_seconds": 35.05,
-      "words": 98
+      "shown_seconds": 47.2,
+      "speech_seconds": 46.45,
+      "words": 142
     },
     {
       "page": 10,
-      "start_seconds": 260.667,
+      "start_seconds": 272.067,
       "shown_seconds": 48.5,
       "speech_seconds": 47.725,
       "words": 136
     },
     {
       "page": 11,
-      "start_seconds": 309.167,
+      "start_seconds": 320.567,
       "shown_seconds": 24.467,
       "speech_seconds": 23.7,
       "words": 64

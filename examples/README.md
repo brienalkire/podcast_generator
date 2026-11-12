@@ -3,7 +3,7 @@
 ## A narrated briefing
 
 `briefing/` holds a PDF and a narration script that together make a
-five-minute video introducing podcast_generator. The video linked from the
+six-minute video introducing podcast_generator. The video linked from the
 main [README](../README.md#examples) was made from these two files.
 
 ```
