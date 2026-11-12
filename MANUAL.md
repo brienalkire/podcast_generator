@@ -156,7 +156,9 @@ malformed `**Lexicon:**` file fails only that script.
 
 Give a script a PDF and it makes a narrated **MP4** instead of audio: each
 page is shown while its part of the script is read. You write the
-narration; the tool voices it and lines it up with the pages.
+narration; the tool voices it and lines it up with the pages. For a
+complete example, see [examples/](examples/README.md): the PDF and script
+behind the introductory video linked from the README.
 
 Needs the `briefing` extra and ffmpeg (with H.264, which the usual
 Windows builds have):

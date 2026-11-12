@@ -1,0 +1,97 @@
+{
+  "tool": "podcast-generator",
+  "version": "0.5.0",
+  "script": "podcast-generator-intro.md",
+  "script_sha256": "8fb184d081aa1027b4e7ce13666403b715be65c8e7ef357fed82e19207cfc077",
+  "pdf": "podcast-generator-intro.pdf",
+  "pdf_sha256": "36e5d080e977f23ae0d9ca96def80ee4674d284d6048619f864dd22912702eae",
+  "pdf_pages": 11,
+  "voice": "af_heart",
+  "speakers": {},
+  "speed": 1.0,
+  "video": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30
+  },
+  "total_seconds": 333.633,
+  "pages": [
+    {
+      "page": 1,
+      "start_seconds": 0.0,
+      "shown_seconds": 21.567,
+      "speech_seconds": 20.8,
+      "words": 59
+    },
+    {
+      "page": 2,
+      "start_seconds": 21.567,
+      "shown_seconds": 26.4,
+      "speech_seconds": 25.65,
+      "words": 77
+    },
+    {
+      "page": 3,
+      "start_seconds": 47.967,
+      "shown_seconds": 25.9,
+      "speech_seconds": 25.125,
+      "words": 82
+    },
+    {
+      "page": 4,
+      "start_seconds": 73.867,
+      "shown_seconds": 35.233,
+      "speech_seconds": 34.475,
+      "words": 107
+    },
+    {
+      "page": 5,
+      "start_seconds": 109.1,
+      "shown_seconds": 29.1,
+      "speech_seconds": 28.325,
+      "words": 88
+    },
+    {
+      "page": 6,
+      "start_seconds": 138.2,
+      "shown_seconds": 26.1,
+      "speech_seconds": 25.325,
+      "words": 81
+    },
+    {
+      "page": 7,
+      "start_seconds": 164.3,
+      "shown_seconds": 27.667,
+      "speech_seconds": 26.9,
+      "words": 79
+    },
+    {
+      "page": 8,
+      "start_seconds": 191.967,
+      "shown_seconds": 32.9,
+      "speech_seconds": 32.15,
+      "words": 101
+    },
+    {
+      "page": 9,
+      "start_seconds": 224.867,
+      "shown_seconds": 35.8,
+      "speech_seconds": 35.05,
+      "words": 98
+    },
+    {
+      "page": 10,
+      "start_seconds": 260.667,
+      "shown_seconds": 48.5,
+      "speech_seconds": 47.725,
+      "words": 136
+    },
+    {
+      "page": 11,
+      "start_seconds": 309.167,
+      "shown_seconds": 24.467,
+      "speech_seconds": 23.7,
+      "words": 64
+    }
+  ]
+}

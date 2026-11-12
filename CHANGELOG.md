@@ -38,6 +38,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   same for Claude.
 - **`--preview`** synthesizes one script and prints its timing without
   saving audio or archiving the script.
+- **Examples.** `examples/briefing/` has the PDF and narration script
+  behind a five-minute introductory video, which was made with this
+  release and is attached to it on GitHub, plus the subtitle and timing
+  files from one run. `examples/podcast/` has a sample single-speaker
+  script. Both are in the source distribution, not the wheel.
 
 ### Fixed
 

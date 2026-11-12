@@ -12,6 +12,11 @@ your scripts never leave your machine.
 - **`podcast-generator-mcp`**: an MCP server, so Claude Desktop or another
   MCP client can write, queue and convert podcasts for you.
 
+**See it first:** a five-minute
+[introductory video](https://github.com/brienalkire/podcast_generator/releases/download/v0.5.0/podcast-generator-intro.mp4)
+(MP4, about 10 MB), made by podcast_generator itself from the
+[example files](#examples).
+
 This README is a quick start. See
 [MANUAL.md](https://github.com/brienalkire/podcast_generator/blob/main/MANUAL.md)
 for the full guide: script-writing conventions, complete CLI reference, the
@@ -236,6 +241,18 @@ See the
 [manual](https://github.com/brienalkire/podcast_generator/blob/main/MANUAL.md#using-it-from-claude-desktop-mcp)
 for checking it's installed, example requests, the tools, and upgrading
 (quit Claude Desktop first).
+
+## Examples
+
+The repository's
+[`examples/`](https://github.com/brienalkire/podcast_generator/tree/main/examples)
+folder has the PDF and narration script behind the
+[introductory video](https://github.com/brienalkire/podcast_generator/releases/download/v0.5.0/podcast-generator-intro.mp4),
+so you can rebuild it yourself, and a sample single-speaker podcast script
+explaining a research paper. They aren't part of the pip install; download
+them from GitHub. Its
+[README](https://github.com/brienalkire/podcast_generator/blob/main/examples/README.md)
+has the commands.
 
 ## License
 

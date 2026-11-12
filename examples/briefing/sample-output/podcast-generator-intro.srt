@@ -1,0 +1,392 @@
+1
+00:00:00,000 --> 00:00:05,443
+This is a short introduction to podcast generator, a tool that turns written scripts
+
+2
+00:00:05,443 --> 00:00:07,970
+into spoken audio on your own computer.
+
+3
+00:00:07,970 --> 00:00:10,951
+It is also an example of what the tool can do.
+
+4
+00:00:10,951 --> 00:00:16,199
+This video was made by podcast generator, from an eleven-page PDF and a narration
+
+5
+00:00:16,199 --> 00:00:16,653
+script.
+
+6
+00:00:16,653 --> 00:00:20,800
+Both are in the examples folder, so you can rebuild it yourself.
+
+7
+00:00:21,567 --> 00:00:23,848
+Here is the problem it was built for.
+
+8
+00:00:23,848 --> 00:00:27,794
+There are far more research papers than anyone has time to read.
+
+9
+00:00:27,794 --> 00:00:32,974
+A short audio explainer, around seven minutes, is usually enough to decide whether a
+
+10
+00:00:32,974 --> 00:00:34,638
+paper deserves a full read.
+
+11
+00:00:34,638 --> 00:00:39,448
+And listening fits into time that reading can't use, like a commute or a walk.
+
+12
+00:00:39,448 --> 00:00:42,099
+Podcast generator makes that audio locally.
+
+13
+00:00:42,099 --> 00:00:47,217
+There is no API key and no cost per use, and your scripts never leave your machine.
+
+14
+00:00:47,967 --> 00:00:49,154
+The idea is simple.
+
+15
+00:00:49,154 --> 00:00:51,529
+A script goes in, and audio comes out.
+
+16
+00:00:51,529 --> 00:00:53,779
+The script is a plain markdown file.
+
+17
+00:00:53,779 --> 00:00:58,842
+An open text-to-speech model called Kokoro reads it aloud, in a voice you choose,
+
+18
+00:00:58,842 --> 00:01:01,342
+and an MP3 lands in your outputs folder.
+
+19
+00:01:01,342 --> 00:01:03,279
+There are three ways to run it.
+
+20
+00:01:03,279 --> 00:01:05,654
+You can ask an AI assistant in a chat.
+
+21
+00:01:05,654 --> 00:01:08,404
+You can drop a script into a watched folder.
+
+22
+00:01:08,404 --> 00:01:11,342
+Or you can run one command at the command line.
+
+23
+00:01:11,342 --> 00:01:13,092
+We'll look at the first two.
+
+24
+00:01:13,867 --> 00:01:15,018
+First, from a chat.
+
+25
+00:01:15,018 --> 00:01:19,501
+Podcast generator includes a connector for AI apps such as Claude Desktop.
+
+26
+00:01:19,501 --> 00:01:23,319
+Once it is set up, you ask for what you want in plain language.
+
+27
+00:01:23,319 --> 00:01:27,863
+In this example, the request is to find a recent technical paper and make a
+
+28
+00:01:27,863 --> 00:01:29,680
+seven-minute podcast about it.
+
+29
+00:01:29,680 --> 00:01:34,103
+The assistant finds a paper, writes the script, queues it, and starts the
+
+30
+00:01:34,103 --> 00:01:34,770
+conversion.
+
+31
+00:01:34,770 --> 00:01:39,435
+A few minutes later it reports that the audio is ready, and where to find it.
+
+32
+00:01:39,435 --> 00:01:43,919
+You should still check the summary against the paper before relying on it.
+
+33
+00:01:43,919 --> 00:01:48,342
+The point is to help you decide what to read, not to replace the reading.
+
+34
+00:01:49,100 --> 00:01:51,039
+This is what a script looks like.
+
+35
+00:01:51,039 --> 00:01:52,861
+Ordinary paragraphs are spoken.
+
+36
+00:01:52,861 --> 00:01:57,621
+Everything else is silent: headers, lines such as the voice and the link, and the
+
+37
+00:01:57,621 --> 00:01:59,619
+source note in italics at the end.
+
+38
+00:01:59,619 --> 00:02:04,555
+That lets you keep the citation and your own notes in the file without hearing them.
+
+39
+00:02:04,555 --> 00:02:06,024
+One line picks the voice.
+
+40
+00:02:06,024 --> 00:02:10,843
+As an option, a different line turns the script into a conversation between two or
+
+41
+00:02:10,843 --> 00:02:13,253
+more speakers, each with their own voice.
+
+42
+00:02:13,253 --> 00:02:17,425
+And a small lexicon file fixes the pronunciation of acronyms and names.
+
+43
+00:02:18,200 --> 00:02:23,146
+The second way to run it is the watch folder, which is the easiest way to work from
+
+44
+00:02:23,146 --> 00:02:23,623
+a phone.
+
+45
+00:02:23,623 --> 00:02:28,628
+On Windows, a small app called Podcast Watch sets up a scheduled task that checks an
+
+46
+00:02:28,628 --> 00:02:29,462
+inputs folder.
+
+47
+00:02:29,462 --> 00:02:32,144
+Point that folder at a cloud-synced location.
+
+48
+00:02:32,144 --> 00:02:35,063
+Then you can save a script there from any device.
+
+49
+00:02:35,063 --> 00:02:39,950
+The watch converts whatever is new, moves the script to an archive, and writes the
+
+50
+00:02:39,950 --> 00:02:43,525
+audio to the outputs folder, which syncs back to your phone.
+
+51
+00:02:44,300 --> 00:02:45,872
+Audio has a limit, though.
+
+52
+00:02:45,872 --> 00:02:48,592
+Podcasts work well for surveying most papers.
+
+53
+00:02:48,592 --> 00:02:53,005
+They work poorly when the argument lives in equations, charts, or tables.
+
+54
+00:02:53,005 --> 00:02:56,994
+The page shown here comes from a briefing on a mathematical paper.
+
+55
+00:02:56,994 --> 00:03:00,198
+Hearing that derivation read aloud is hard to follow.
+
+56
+00:03:00,198 --> 00:03:03,039
+Seeing it while it is explained is much easier.
+
+57
+00:03:03,039 --> 00:03:07,996
+For papers like that, podcast generator can make a narrated briefing: a video that
+
+58
+00:03:07,996 --> 00:03:11,200
+shows each page of a PDF while its narration is read.
+
+59
+00:03:11,967 --> 00:03:16,182
+A briefing needs two things: a PDF, and a script with page markers.
+
+60
+00:03:16,182 --> 00:03:18,510
+One line in the script names the PDF.
+
+61
+00:03:18,510 --> 00:03:23,543
+Then a line reading page one, page two, and so on, starts the narration for each
+
+62
+00:03:23,543 --> 00:03:23,858
+page.
+
+63
+00:03:23,858 --> 00:03:28,954
+The result is a high-definition video, with subtitles, and a small file recording
+
+64
+00:03:28,954 --> 00:03:30,464
+the timing of each page.
+
+65
+00:03:30,464 --> 00:03:32,477
+The rules are strict on purpose.
+
+66
+00:03:32,477 --> 00:03:37,511
+If a marker is missing, or names a page the PDF doesn't have, the tool stops and
+
+67
+00:03:37,511 --> 00:03:38,895
+tells you what to fix.
+
+68
+00:03:38,895 --> 00:03:44,117
+It will not guess, so you never get a video where the words and the pages disagree.
+
+69
+00:03:44,867 --> 00:03:47,436
+Here is how to make one, in four steps.
+
+70
+00:03:47,436 --> 00:03:52,773
+First, install the briefing extra, and make sure the free video tool F F M peg is
+
+71
+00:03:52,773 --> 00:03:53,432
+available.
+
+72
+00:03:53,432 --> 00:03:55,672
+Second, export your slides to PDF.
+
+73
+00:03:55,672 --> 00:04:00,349
+Third, write the narration, with a page marker before each page's text.
+
+74
+00:04:00,349 --> 00:04:05,686
+If your narration is already in PowerPoint speaker notes, one command extracts it
+
+75
+00:04:05,686 --> 00:04:07,333
+into a ready-made script.
+
+76
+00:04:07,333 --> 00:04:08,585
+Fourth, convert it.
+
+77
+00:04:08,585 --> 00:04:13,987
+Run the command, or drop the script and the PDF into the watch folder together, or
+
+78
+00:04:13,987 --> 00:04:16,688
+ask your AI assistant to narrate the PDF.
+
+79
+00:04:16,688 --> 00:04:19,917
+Use the preview option to check the timing first.
+
+80
+00:04:20,667 --> 00:04:23,343
+Before you install, here is what you need.
+
+81
+00:04:23,343 --> 00:04:26,401
+First, Python, version three point ten or later.
+
+82
+00:04:26,401 --> 00:04:31,626
+Python does not come with Claude or Claude Desktop, so install it yourself, or use
+
+83
+00:04:31,626 --> 00:04:35,258
+an installer such as U V, which can fetch Python for you.
+
+84
+00:04:35,258 --> 00:04:40,419
+Second, about two gigabytes of disk space for the speech model and its libraries.
+
+85
+00:04:40,419 --> 00:04:44,497
+It runs on an ordinary processor, so no graphics card is needed.
+
+86
+00:04:44,497 --> 00:04:49,467
+Third, F F M peg, which is usually needed for MP3 output and always needed for
+
+87
+00:04:49,467 --> 00:04:50,678
+narrated briefings.
+
+88
+00:04:50,678 --> 00:04:55,202
+The first run needs an internet connection to download the voice model.
+
+89
+00:04:55,202 --> 00:04:57,560
+After that, everything works offline.
+
+90
+00:04:57,560 --> 00:05:02,848
+The Podcast Watch app is for Windows, though the command line runs on other systems
+
+91
+00:05:02,848 --> 00:05:03,103
+too.
+
+92
+00:05:03,103 --> 00:05:08,392
+And you only need Claude Desktop, or a similar app, if you want the chat connector.
+
+93
+00:05:09,167 --> 00:05:12,506
+To get started, install podcast generator with pip.
+
+94
+00:05:12,506 --> 00:05:17,547
+Add the optional extras if you want the chat connector or narrated briefings.
+
+95
+00:05:17,547 --> 00:05:22,981
+Then try the examples folder, which holds the script and PDF behind this video, and
+
+96
+00:05:22,981 --> 00:05:24,552
+a sample podcast script.
+
+97
+00:05:24,552 --> 00:05:29,331
+The read me file is a quick start, and the manual covers everything else.
+
+98
+00:05:29,331 --> 00:05:32,867
+The project is open source, at the address shown here.
+

@@ -1,2 +1,3 @@
 recursive-include tests *.py
 include CHANGELOG.md MANUAL.md .env.example
+recursive-include examples *.md *.pdf *.srt *.json
