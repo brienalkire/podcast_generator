@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Pronunciation lexicon.** Lines of `written form = spoken form` in
+  `lexicon.txt` in the home folder fix how acronyms and names are said, in
+  every script. A script can add its own with a `**Lexicon:** file` line,
+  and `--lexicon FILE` adds one for a run. Matching is whole-word and
+  case-sensitive. A spoken form can be an exact pronunciation in Kokoro's
+  phoneme alphabet: `[Kokoro](/kˈOkəɹO/)`. `queue_podcast` checks a
+  script's lexicon before queueing it.
+
 ### Fixed
 
 - A conversion run logged "Found N script(s) to convert" twice (new in 0.4.1).

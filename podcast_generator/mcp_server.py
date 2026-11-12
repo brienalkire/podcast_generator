@@ -69,7 +69,9 @@ mcp = MCPServer(
         "starts ends the script. For a conversation between two or more "
         "speakers, start each line with the speaker's name and a colon "
         "('Maya: ...') and pass queue_podcast a voices mapping, e.g. "
-        "{'Maya': 'af_heart', 'Theo': 'bm_george'}."
+        "{'Maya': 'af_heart', 'Theo': 'bm_george'}. Pronunciation fixes for "
+        "acronyms and names go in the user's lexicon.txt in the home folder "
+        "(lines of 'written form = spoken form'), applied to every script."
     ),
 )
 
@@ -246,7 +248,10 @@ def queue_podcast(name: str, script: str, voice: str | None = None,
         chosen_voice = g.resolve_voice(script, None)
         speakers = g.resolve_speaker_voices(script)
         spoken = g.spoken_text(script)
-    except ValueError as exc:  # an unknown voice or a malformed **Voices:** line
+        # The script will be converted from the queue folder, so a relative
+        # **Lexicon:** path resolves there.
+        g.load_lexicon(script, g.CONNECTOR_QUEUE_DIR)
+    except ValueError as exc:  # an unknown voice, a malformed **Voices:** line, or a bad lexicon
         raise ToolError(str(exc)) from exc
 
     words = len(spoken.split())

@@ -451,6 +451,87 @@ def spoken_text(raw_text):
     return strip_markdown(raw_text)
 
 
+# Pronunciation fixes: lines of  written form = spoken form  in a plain-text
+# lexicon file. The user-level file holds standing terms; a script can add
+# its own with a  **Lexicon:** file.txt  line, and --lexicon adds one more
+# for a run. Later layers win for the same written form.
+LEXICON_PATH = os.path.join(HOME_DIR, "lexicon.txt")
+lexicon_meta_pattern = re.compile(r"^\s*\*\*\s*Lexicon\s*:\s*\*\*\s*(.*?)\s*$", re.IGNORECASE)
+
+
+def parse_lexicon(text, source="lexicon"):
+    """Return {written: spoken} from lexicon file text.
+
+    One entry per line, `written = spoken`; blank lines and lines starting
+    with `#` are ignored. Raises ValueError naming the line for a malformed
+    entry.
+    """
+    entries = {}
+    for number, line in enumerate(text.splitlines(), start=1):
+        stripped = line.strip().lstrip("﻿")
+        if not stripped or stripped.startswith("#"):
+            continue
+        written, sep, spoken = stripped.partition("=")
+        written, spoken = written.strip(), spoken.strip()
+        if not sep or not written or not spoken:
+            raise ValueError(
+                f"{source}, line {number}: expected 'written form = spoken form', "
+                f"got: {stripped}")
+        entries[written] = spoken
+    return entries
+
+
+def read_lexicon_file(path):
+    """Parse the lexicon file at `path`. Raises ValueError if it's missing."""
+    if not os.path.isfile(path):
+        raise ValueError(f"lexicon file not found: {path}")
+    with open(path, "r", encoding="utf-8") as f:
+        return parse_lexicon(f.read(), source=path)
+
+
+def parse_lexicon_metadata(raw_text):
+    """Return the file named in a script's `**Lexicon:** <file>` line, or None."""
+    for line in raw_text.splitlines():
+        match = lexicon_meta_pattern.match(line)
+        if match and match.group(1):
+            return match.group(1)
+    return None
+
+
+def load_lexicon(raw_text, script_dir, cli_lexicon=None, user_lexicon=None):
+    """Merge the lexicons that apply to one script.
+
+    Layers, later winning: the user-level file (LEXICON_PATH, skipped if it
+    doesn't exist), the script's **Lexicon:** file (relative to
+    `script_dir`), then `cli_lexicon`. A named file that's missing, or any
+    malformed file, raises ValueError.
+    """
+    user_lexicon = LEXICON_PATH if user_lexicon is None else user_lexicon
+    entries = {}
+    if user_lexicon and os.path.isfile(user_lexicon):
+        entries.update(read_lexicon_file(user_lexicon))
+    script_lexicon = parse_lexicon_metadata(raw_text)
+    if script_lexicon:
+        entries.update(read_lexicon_file(os.path.join(script_dir, script_lexicon)))
+    if cli_lexicon:
+        entries.update(read_lexicon_file(cli_lexicon))
+    return entries
+
+
+def apply_lexicon(text, lexicon):
+    """Replace each whole-word, case-sensitive written form with its spoken form.
+
+    One pass, longest forms first, so a replacement is never itself
+    replaced and "JADC2" wins over "JADC". "Whole word" means not touching
+    a letter, digit or underscore on either side, so forms like "U.S." work.
+    """
+    if not lexicon:
+        return text
+    forms = sorted(lexicon, key=len, reverse=True)
+    pattern = re.compile(r"(?<!\w)(?:" + "|".join(re.escape(f) for f in forms) + r")(?!\w)")
+    return pattern.sub(lambda m: lexicon[m.group(0)], text)
+
+
 def write_audio(full_audio, out_path, fmt, sample_rate):
     """Write `full_audio` to `out_path` in the requested format.
 
@@ -609,6 +690,12 @@ def process_job(engine, input_path, output_path, args):
         turns = [(None, strip_markdown(raw_text))]
     if not any(text.strip() for _, text in turns):
         raise ValueError("no spoken text found after stripping the markdown.")
+    # After the markdown cleanup, so a phoneme override like
+    # [Kokoro](/kˈOkəɹO/) reaches Kokoro instead of being stripped as a link.
+    lexicon = load_lexicon(raw_text, os.path.dirname(os.path.abspath(input_path)),
+                           cli_lexicon=args.lexicon)
+    if lexicon:
+        turns = [(speaker, apply_lexicon(text, lexicon)) for speaker, text in turns]
     if speakers:
         cast = ", ".join(f"{name}={v}" for name, v in speakers.items())
         print(f"Dialogue: {cast}; {len(turns)} turns.")
@@ -685,6 +772,14 @@ def parse_args(argv):
         choices=FORMAT_CHOICES,
         default=DEFAULT_FORMAT,
         help=f"Audio output format (default: {DEFAULT_FORMAT}).",
+    )
+    parser.add_argument(
+        "--lexicon",
+        metavar="FILE",
+        default=None,
+        help="Extra pronunciation lexicon for this run (lines of "
+             "'written form = spoken form'). Applied on top of lexicon.txt "
+             "in the home folder and any script's **Lexicon:** file.",
     )
     parser.add_argument(
         "--wait",
@@ -765,6 +860,16 @@ def run(args):
     # Validate up front that any explicitly named single file actually exists.
     if args.input_path and not os.path.isfile(args.input_path):
         print(f"Error: file not found: {args.input_path}", file=sys.stderr)
+        return 1
+
+    # The run-wide lexicons apply to every script, so a broken one fails the
+    # run here rather than moving each script into the failed folder.
+    try:
+        for path in (LEXICON_PATH, args.lexicon):
+            if path and (path == args.lexicon or os.path.isfile(path)):
+                read_lexicon_file(path)
+    except (ValueError, OSError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
         return 1
 
     try:

@@ -127,6 +127,11 @@ the speaker's name (`Maya: Welcome back.`). Each speaker is read in their
 own voice, with a short pause between turns. See
 [Two or more speakers](https://github.com/brienalkire/podcast_generator/blob/main/MANUAL.md#two-or-more-speakers-dialogue).
 
+**Pronunciation fixes**: put lines like `JADC2 = J A D C two` in
+`lexicon.txt` in the home folder, and every script says them that way. A
+script can add its own with a `**Lexicon:** terms.txt` line. See
+[Pronunciation fixes](https://github.com/brienalkire/podcast_generator/blob/main/MANUAL.md#pronunciation-fixes-lexicon).
+
 ### Running it
 
 ```
@@ -151,6 +156,7 @@ here.
 | `--speed FLOAT` | Speaking rate (default `1.0`; `0.9` slower, `1.1` faster). |
 | `--format {mp3,wav}` | Output format (default `mp3`). |
 | `--output PATH` | Output file (single-file mode only). |
+| `--lexicon FILE` | Extra pronunciation lexicon for this run. |
 | `--wait` | Wait for a conversion run already in progress, instead of exiting. |
 | `--lang CODE` | Accent override; normally inferred from the voice name. |
 | `--version` | Print the version and exit. |

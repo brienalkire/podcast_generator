@@ -71,3 +71,8 @@ def test_generate_now_converts_only_the_connector_queue(folders, monkeypatch):
     assert "starts when it finishes" in result["note"]
     assert started["cmd"][-1] == "--wait"
     assert started["env"]["PODCAST_INPUTS_DIR"] == mcp_server.g.CONNECTOR_QUEUE_DIR
+
+
+def test_queue_rejects_missing_lexicon(folders):
+    with pytest.raises(mcp_server.ToolError, match="lexicon file not found"):
+        mcp_server.queue_podcast("lex", "**Lexicon:** nowhere.txt\n\nHello there.")

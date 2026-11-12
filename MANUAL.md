@@ -119,6 +119,39 @@ All the other rules above (headers, metadata, italic-only lines) apply
 unchanged. Kokoro has no single-model multi-speaker mode: each turn is
 synthesized separately and the turns are joined.
 
+### Pronunciation fixes (lexicon)
+
+Kokoro guesses at acronyms, product names and jargon. A **lexicon** tells
+it how to say them. It's a plain-text file with one entry per line:
+
+```
+# Lines starting with # are comments.
+JADC2 = J A D C two
+RAND = rand
+Kokoro = [Kokoro](/kˈOkəɹO/)
+```
+
+- Matching is whole-word and case-sensitive: `JADC2` doesn't change
+  `jadc2` or `JADC2X`. When two entries overlap, the longer one wins.
+- The spoken form is usually just respelled text. For an exact
+  pronunciation, write `[word](/phonemes/)` using Kokoro's phoneme
+  alphabet, as in the `Kokoro` line above.
+- Substitution happens after the markdown is stripped, so it never touches
+  headers, metadata or speaker labels.
+
+Lexicons come from up to three places, merged in this order (a later one
+wins for the same word):
+
+1. `lexicon.txt` in the [home folder](#where-settings-are-stored): standing
+   terms, applied to every script. Optional.
+2. A script's own `**Lexicon:** terms.txt` line, relative to the script's
+   folder (or an absolute path).
+3. `--lexicon FILE` on the command line, for that run.
+
+A malformed `lexicon.txt` or `--lexicon` file stops the run before
+anything is converted, with the file and line number. A missing or
+malformed `**Lexicon:**` file fails only that script.
+
 ## Full CLI reference
 
 ```
@@ -133,6 +166,7 @@ podcast-generator [input_script.md] [options]
 | `--speed FLOAT` | Speaking rate multiplier (default `1.0`; `0.9` slower, `1.1` faster). |
 | `--format {mp3,wav}` | Output format (default `mp3`). |
 | `--output PATH` | Output file path. Only used in single-file mode; ignored in batch mode. |
+| `--lexicon FILE` | Extra [pronunciation lexicon](#pronunciation-fixes-lexicon) for this run, on top of `lexicon.txt` and any script's `**Lexicon:**` file. |
 | `--wait` | If another conversion run is in progress, wait for it to finish (up to 2 hours) instead of exiting. |
 | `--version` | Print the installed version and exit. |
 
