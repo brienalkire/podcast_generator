@@ -24,8 +24,11 @@ jobs:
           python-version: ${{ matrix.python }}
       # Base voxport only: the tests never load Kokoro, and voxport[kokoro]
       # pulls in torch (~2 GB). --no-deps keeps pip from fetching it anyway.
-      - run: python -m pip install voxport numpy soundfile python-dotenv platformdirs "mcp>=2.3,<3" pytest
+      - run: python -m pip install voxport numpy soundfile python-dotenv platformdirs "mcp>=2.3,<3" pypdfium2 pytest
       - run: python -m pip install --no-deps -e .
+      # For the briefing (MP4) tests; Ubuntu's ffmpeg includes libx264.
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - run: python -m pytest -rs
 
   numpy1:

@@ -1,6 +1,8 @@
 import json
 import shutil
 import subprocess
+import sys
+import types
 
 import numpy as np
 import pytest
@@ -163,8 +165,10 @@ def test_watch_folder_briefing_archives_its_pdf(folders, monkeypatch):
     make_pdf(inputs / "deck.pdf", [("One", LANDSCAPE)])
     (inputs / "deck.md").write_text("**Briefing:** deck.pdf\n\n## Page 1\n\nHi.", encoding="utf-8")
 
-    import voxport.tts.kokoro_direct as kd
-    monkeypatch.setattr(kd, "KokoroDirectTTS", SpeechEngine)
+    # A stand-in module, so the real one (and torch) is never imported.
+    fake = types.ModuleType("voxport.tts.kokoro_direct")
+    fake.KokoroDirectTTS = SpeechEngine
+    monkeypatch.setitem(sys.modules, "voxport.tts.kokoro_direct", fake)
     assert g.run(g.parse_args(["podcast-generator"])) == 0
     assert (outputs / "deck.mp4").exists()
     assert sorted(p.name for p in archive.iterdir()) == ["deck.md", "deck.pdf"]
