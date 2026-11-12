@@ -177,8 +177,6 @@ Note: the notes-to-Word export and VBA macros also work but give poorer structur
 - Default silent hold (proposed 3 s) and inter-page pause lengths.
 - Whether 1920×1080 should be configurable, or follow the first page's aspect ratio.
 - Output folder: same outputs folder as podcasts (proposed), with `.mp4`, `.srt` and the metadata JSON side by side?
-- Whether the MCP server should restrict PDF paths to certain folders, or accept any readable path the user names.
-- Does `podcast_status` / `list_podcasts` need changes to report MP4 outputs (`_output_files` and `_audio_info` assume audio)?
 
 ## 15. Implementation order
 
@@ -193,5 +191,12 @@ Note: the notes-to-Word export and VBA macros also work but give poorer structur
    - In the inputs folder, a converted briefing's PDF is archived with the script, unless another waiting script names it. A failed briefing's PDF stays in inputs.
    - `--pdf` is single-file only; in batch mode the `**Briefing:**` line is the only way.
    - Open: `podcast_status` and `list_podcasts` still look only for audio files (step 4).
-4. MCP: `inspect_briefing`, `validate_briefing`, and `queue_podcast(pdf=...)`.
+4. MCP: `inspect_briefing`, `validate_briefing`, and `queue_podcast(pdf=...)`. **Done.** Decisions:
+   - PDF paths: any existing, readable `.pdf` the user names is accepted (no folder allow-list). The server is local and runs as the user, so a list would add friction without protecting anything; the size and page limits still apply.
+   - `queue_podcast` also accepts an absolute path in a `**Briefing:**` line the script already has. A relative one resolves to the queue folder and is reported as not found, with a hint to ask the user for the full path.
+   - The queued copy is `<name>.pdf` in the queue, and the script's line is rewritten to name it. Re-queueing the name as a plain podcast removes the old copy.
+   - `queue_podcast` refuses a briefing if ffmpeg (with libx264) is missing, rather than letting the conversion fail later.
+   - `validate_briefing` returns `ok: false` with the errors instead of raising, since finding problems is its purpose. `inspect_briefing` returns a `script_skeleton` with one marker per page.
+   - `list_podcasts` keeps `recent_audio` as it was and adds `recent_briefings`; `podcast_status` adds `kind` ("audio" or "video"), and for a video the subtitle path and the length from `.briefing.json`.
+   - Server instructions now describe the briefing flow: ask for the path, inspect, write one section per page, queue with `pdf`.
 5. `extract-notes`.

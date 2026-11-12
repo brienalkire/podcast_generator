@@ -488,6 +488,9 @@ the tools. For example:
 - "What podcasts have I made recently? Did any fail?"
 - "Requeue science-ep01-tides with replace=true and generate it again."
 - "Turn the podcast watch on." (Windows, once the watch is set up.)
+- "Narrate my deck at C:\Users\me\Documents\q3-review.pdf as a
+  briefing video, about a minute per slide." (Needs the `briefing` extra
+  and ffmpeg; see [Narrated briefings](#narrated-briefings-pdf-to-video).)
 
 What to expect:
 
@@ -538,11 +541,17 @@ config doesn't change, since the command path stays the same.
 | Tool | What it does |
 |---|---|
 | `list_voices` | Lists the voices a script can use. |
-| `queue_podcast` | Saves a script to the connector's queue under a name you choose, optionally setting its voice, or with `voices` (e.g. `{"Maya": "af_heart", "Theo": "bm_george"}`) its speakers' voices for a dialogue. It checks the script first: an unknown voice, a script with nothing to speak, or a name that's already taken (including by a script waiting in the watch's inputs folder) is reported straight away, not after a failed conversion. Returns the word count and an estimated length. |
+| `queue_podcast` | Saves a script to the connector's queue under a name you choose, optionally setting its voice, or with `voices` (e.g. `{"Maya": "af_heart", "Theo": "bm_george"}`) its speakers' voices for a dialogue. It checks the script first: an unknown voice, a script with nothing to speak, or a name that's already taken (including by a script waiting in the watch's inputs folder) is reported straight away, not after a failed conversion. Returns the word count and an estimated length. With `pdf` (the PDF's full path on this computer) it queues a [narrated briefing](#narrated-briefings-pdf-to-video) instead: the script is checked against the PDF first, and the PDF is copied into the queue, so moving or editing the original afterwards doesn't affect the job. |
+| `inspect_briefing` | Reads a PDF on this computer: its page count, each page's text and title, and which pages have no text layer (scanned images). Claude uses it to write one narration section per page, with the right `## Page N` numbers. |
+| `validate_briefing` | Checks a briefing script against its PDF without queueing anything: the same strict page checks a conversion does, plus warnings and an estimated length. |
 | `generate_now` | Starts converting everything in the connector's queue, in the background, and returns at once. Never touches the watch's inputs folder. If another conversion is running, it waits for that to finish first. |
-| `podcast_status` | Reports whether a podcast is queued, converting, done (with the file path, size, and length), or failed (with the reason). With `wait_seconds` (up to 50), it waits for a conversion to finish before answering, returning as soon as it's done or failed. |
-| `list_podcasts` | Shows the installed version, the folders, whether the watch is on, what's in the connector's queue, what's waiting in the watch's inputs folder, and recent audio and failures. |
+| `podcast_status` | Reports whether a podcast is queued, converting, done (with the file path, size, and length), or failed (with the reason). For a briefing it says it's a video and gives the subtitle file. With `wait_seconds` (up to 50), it waits for a conversion to finish before answering, returning as soon as it's done or failed. |
+| `list_podcasts` | Shows the installed version, the folders, whether the watch is on, what's in the connector's queue, what's waiting in the watch's inputs folder, and recent audio, briefings and failures. |
 | `set_watch` | Turns the scheduled watch on or off. This affects only the inputs folder, not the connector's queue. |
+
+For a briefing, Claude needs the PDF's location on disk: the connector
+can't see a file attached to the chat. Claude can read an attachment
+itself to write the narration, but give it the path too.
 
 Conversion never happens inside a tool call, because a long script takes
 minutes. After queuing a script, the AI calls `generate_now`, then follows

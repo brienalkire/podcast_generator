@@ -23,6 +23,7 @@ import glob
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from datetime import datetime
@@ -71,7 +72,15 @@ mcp = MCPServer(
         "('Maya: ...') and pass queue_podcast a voices mapping, e.g. "
         "{'Maya': 'af_heart', 'Theo': 'bm_george'}. Pronunciation fixes for "
         "acronyms and names go in the user's lexicon.txt in the home folder "
-        "(lines of 'written form = spoken form'), applied to every script."
+        "(lines of 'written form = spoken form'), applied to every script. "
+        "Narrated briefings: given a PDF, it makes an MP4 showing each page "
+        "while its narration is read. Ask the user for the PDF's full path on "
+        "this computer (the server can't see chat attachments), call "
+        "inspect_briefing on it for the page count and each page's text, write "
+        "one section per page starting with a line '## Page N' (N as numbered "
+        "in the PDF), then queue_podcast with pdf=<path>. Narrate the page; "
+        "don't read the slide out word for word. Checks are strict: every "
+        "marker must be a real page, in order, with no text before the first."
     ),
 )
 
@@ -119,8 +128,11 @@ def _set_meta_line(script: str, pattern: re.Pattern, new_line: str) -> str:
     return "\n".join(lines).lstrip("\n") + "\n"
 
 
+OUTPUT_FORMATS = [*g.FORMAT_CHOICES, "mp4"]
+
+
 def _output_files(name: str) -> list[str]:
-    files = [os.path.join(g.OUTPUT_DIR, f"{name}.{fmt}") for fmt in g.FORMAT_CHOICES]
+    files = [os.path.join(g.OUTPUT_DIR, f"{name}.{fmt}") for fmt in OUTPUT_FORMATS]
     return [f for f in files if os.path.isfile(f)]
 
 
@@ -143,15 +155,65 @@ def _when(path: str) -> str:
     return datetime.fromtimestamp(os.path.getmtime(path)).isoformat(timespec="seconds")
 
 
-def _audio_info(path: str) -> dict:
+def _output_info(path: str) -> dict:
     info = {"path": path, "size_mb": round(os.path.getsize(path) / 1e6, 2),
             "finished": _when(path)}
     try:
-        import soundfile
-        info["duration_minutes"] = round(soundfile.info(path).duration / 60, 1)
+        if path.endswith(".mp4"):
+            srt_path, json_path = g.briefing_outputs(path)
+            info["kind"] = "video"
+            if os.path.isfile(srt_path):
+                info["subtitles"] = srt_path
+            with open(json_path, encoding="utf-8") as f:
+                info["duration_minutes"] = round(json.load(f)["total_seconds"] / 60, 1)
+        else:
+            import soundfile
+            info["kind"] = "audio"
+            info["duration_minutes"] = round(soundfile.info(path).duration / 60, 1)
     except Exception:  # noqa: BLE001 - duration is a nice-to-have
         pass
     return info
+
+
+def _briefing_module():
+    try:
+        from . import briefing
+        briefing._pdfium()
+    except RuntimeError as exc:
+        raise ToolError(str(exc)) from exc
+    return briefing
+
+
+def _check_pdf_path(pdf: str) -> str:
+    """An existing .pdf file's absolute path, or a ToolError."""
+    path = os.path.abspath(os.path.expanduser(pdf.strip().strip('"')))
+    if not path.lower().endswith(".pdf"):
+        raise ToolError(f"not a .pdf file: {path}")
+    if not os.path.isfile(path):
+        raise ToolError(f"PDF not found: {path}. Ask the user for the full path "
+                        "of the file on this computer.")
+    return path
+
+
+def _check_briefing(script: str, pdf_path: str) -> dict:
+    """Check a briefing script against its PDF without making audio.
+
+    Returns pages, shown pages, warnings and an estimated length. Raises
+    ToolError listing what stops it.
+    """
+    briefing = _briefing_module()
+    try:
+        count = briefing.page_count(pdf_path)
+        speakers = g.resolve_speaker_voices(script)
+        pages, warnings = g.plan_pages(g.split_pages(script, speakers), count)
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
+    seconds = sum(
+        sum(len(text.split()) for _, text in turns) / WORDS_PER_MINUTE * 60
+        + g.INTER_PAGE_PAUSE_SECONDS if turns else g.SILENT_HOLD_SECONDS
+        for _, turns in pages)
+    return {"pdf_pages": count, "pages_shown": [n for n, _ in pages],
+            "warnings": warnings, "estimated_minutes": round(seconds / 60, 1)}
 
 
 def _read(path: str, limit: int = 2000) -> str:
@@ -211,12 +273,13 @@ def list_voices() -> dict:
 @mcp.tool()
 def queue_podcast(name: str, script: str, voice: str | None = None,
                   voices: dict[str, str] | None = None,
-                  replace: bool = False) -> dict:
-    """Save a markdown podcast script to the inputs folder, ready to convert.
+                  replace: bool = False, pdf: str | None = None) -> dict:
+    """Save a markdown podcast script to the queue, ready to convert.
 
     Args:
         name: File name without extension, e.g. "myseries-ep01-introduction".
-            The audio will be <name>.mp3 in the outputs folder.
+            The audio will be <name>.mp3 in the outputs folder (<name>.mp4
+            for a briefing).
         script: The full markdown script. Plain paragraphs are spoken;
             '#' headers, '**Key:** value' lines, bold-only labels like
             '**INTRO**', '---' rules and italic-only lines are not. An
@@ -232,8 +295,26 @@ def queue_podcast(name: str, script: str, voice: str | None = None,
             Sets the script's **Voices:** line. An empty voice ("") picks a
             distinct one automatically.
         replace: Overwrite a queued script or finished audio with this name.
+        pdf: For a narrated briefing (an MP4 of the PDF's pages): the PDF's
+            full path on this computer. The script then needs a '## Page N'
+            line before each page's narration (see inspect_briefing). The
+            PDF is copied into the queue, and checked against the script
+            before anything is queued. Sets the script's **Briefing:** line.
     """
     name = _check_name(name)
+    # A briefing's PDF: the pdf argument, or an absolute path in a
+    # **Briefing:** line the script already has.
+    pdf_path = pdf or g.briefing_pdf_path(script, os.path.join(g.CONNECTOR_QUEUE_DIR, name + ".md"))
+    briefing_check = None
+    if pdf_path:
+        pdf_path = _check_pdf_path(pdf_path)
+        briefing_check = _check_briefing(script, pdf_path)
+        try:
+            _briefing_module().check_ffmpeg()
+        except RuntimeError as exc:
+            raise ToolError(str(exc)) from exc
+        # The queued script names the queued copy of the PDF, next to it.
+        script = _set_meta_line(script, g.briefing_meta_pattern, f"**Briefing:** {name}.pdf")
     if voice:
         if voice not in g.VOICE_CHOICES:
             raise ToolError(f"unknown voice '{voice}'. Call list_voices for the options.")
@@ -280,6 +361,15 @@ def queue_podcast(name: str, script: str, voice: str | None = None,
                 "name, or pass replace=true to regenerate it.")
 
     os.makedirs(g.CONNECTOR_QUEUE_DIR, exist_ok=True)
+    queued_pdf = os.path.join(g.CONNECTOR_QUEUE_DIR, name + ".pdf")
+    if not pdf_path and os.path.isfile(queued_pdf):
+        os.remove(queued_pdf)  # left by an earlier briefing of this name
+    if pdf_path:
+        # A copy, so a later edit or move of the original can't change the
+        # queued job. Written before the script, which is what starts a job.
+        if os.path.normcase(pdf_path) != os.path.normcase(queued_pdf):
+            shutil.copyfile(pdf_path, queued_pdf + ".part")
+            os.replace(queued_pdf + ".part", queued_pdf)
     partial = target + ".part"  # not *.md, so a run can't pick it up half-written
     with open(partial, "w", encoding="utf-8", newline="\n") as f:
         f.write(script)
@@ -294,12 +384,82 @@ def queue_podcast(name: str, script: str, voice: str | None = None,
             result["warning"] = (
                 f"no lines start with {', '.join(n + ':' for n in unheard)}, so "
                 "they are never heard. Check the line labels match the speaker names.")
+    estimate = round(words / WORDS_PER_MINUTE, 1)
+    if briefing_check:
+        result["briefing"] = {"pdf": pdf_path, "pdf_pages": briefing_check["pdf_pages"],
+                              "pages_shown": briefing_check["pages_shown"]}
+        if briefing_check["warnings"]:
+            result["warnings"] = briefing_check["warnings"]
+        estimate = briefing_check["estimated_minutes"]
     return {
         **result,
         "spoken_words": words,
-        "estimated_minutes": round(words / WORDS_PER_MINUTE, 1),
+        "estimated_minutes": estimate,
         "next_step": NEXT_STEP,
     }
+
+
+@mcp.tool()
+def inspect_briefing(pdf: str, max_chars_per_page: int = 600) -> dict:
+    """Read a PDF before writing a narrated briefing for it.
+
+    Returns the page count and each page's text (and a title: its first
+    line), so the narration can follow the pages and use the right
+    '## Page N' numbers. Pages with no text layer (scanned images) are
+    flagged; ask the user what those pages show. Also returns a
+    script_skeleton with one marker per page to fill in.
+
+    Args:
+        pdf: The PDF's full path on this computer.
+        max_chars_per_page: Truncate each page's text to this many characters.
+    """
+    path = _check_pdf_path(pdf)
+    briefing = _briefing_module()
+    try:
+        texts = briefing.page_texts(path)
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
+    limit = max(50, min(int(max_chars_per_page), 5000))
+    pages = []
+    for number, text in enumerate(texts, start=1):
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        page = {"page": number, "title": lines[0][:120] if lines else "",
+                "text": " ".join(lines)[:limit]}
+        if not lines:
+            page["no_text_layer"] = True
+        pages.append(page)
+    result = {"pdf": path, "pages": len(texts), "page_text": pages,
+              "script_skeleton": "\n\n".join(f"## Page {n}\n\n" for n in range(1, len(texts) + 1))}
+    blank = [p["page"] for p in pages if p.get("no_text_layer")]
+    if blank:
+        result["warning"] = (f"pages {', '.join(map(str, blank))} have no text layer "
+                             "(scanned images, or pictures only); ask the user what they show.")
+    return result
+
+
+@mcp.tool()
+def validate_briefing(script: str, pdf: str | None = None) -> dict:
+    """Check a briefing script against its PDF without queueing or making audio.
+
+    Reports what queue_podcast would refuse (missing or mistyped '## Page N'
+    markers, pages the PDF doesn't have, pages out of order or repeated,
+    text before the first marker) and warnings (pages with no narration,
+    which are shown silently; very long sections).
+
+    Args:
+        script: The full markdown briefing script.
+        pdf: The PDF's full path on this computer. Optional if the script
+            has a **Briefing:** line with a full path.
+    """
+    pdf_path = pdf or g.briefing_pdf_path(script, os.path.join(g.CONNECTOR_QUEUE_DIR, "x.md"))
+    if not pdf_path:
+        raise ToolError("no PDF given: pass pdf=<the PDF's full path>.")
+    pdf_path = _check_pdf_path(pdf_path)
+    try:
+        check = _check_briefing(script, pdf_path)
+    except ToolError as exc:
+        return {"ok": False, "errors": str(exc), "pdf": pdf_path}
+    return {"ok": True, "pdf": pdf_path, **check}
 
 
 @mcp.tool()
@@ -358,7 +518,7 @@ def _status_once(name: str) -> dict:
                 "script": newest_note[: -len(".error.txt")],
                 "next_step": "Fix the script and queue it again with replace=true."}
     if newest_output:
-        return {"status": "done", **_audio_info(newest_output)}
+        return {"status": "done", **_output_info(newest_output)}
     return {"status": "not found",
             "detail": f"No queued script, audio, or failure note named '{name}'."}
 
@@ -401,7 +561,7 @@ async def podcast_status(name: str, wait_seconds: int = 0) -> dict:
 
 @mcp.tool()
 def list_podcasts(limit: int = 20) -> dict:
-    """Overview: version, folders, queued scripts, recent audio and failures.
+    """Overview: version, folders, queued scripts, recent audio, briefings and failures.
 
     "queued" is the connector's own queue. "watch_inputs" lists scripts in
     the folder watch's inputs folder, which the connector never converts.
@@ -416,6 +576,7 @@ def list_podcasts(limit: int = 20) -> dict:
 
     audio = newest(p for fmt in g.FORMAT_CHOICES
                    for p in glob.glob(os.path.join(g.OUTPUT_DIR, f"*.{fmt}")))
+    videos = newest(glob.glob(os.path.join(g.OUTPUT_DIR, "*.mp4")))
     failures = newest(glob.glob(os.path.join(g.FAILED_DIR, "*.error.txt")))
     return {
         "version": g.__version__,
@@ -427,6 +588,8 @@ def list_podcasts(limit: int = 20) -> dict:
         "watch_inputs": _queued_scripts(g.INPUT_DIR),
         "recent_audio": [{"name": os.path.basename(p), "path": p, "finished": _when(p)}
                          for p in audio],
+        "recent_briefings": [{"name": os.path.basename(p), "path": p, "finished": _when(p)}
+                             for p in videos],
         "recent_failures": [{"script": os.path.basename(p)[: -len(".error.txt")],
                              "failed_at": _when(p),
                              "error": _read(p, 300)} for p in failures],

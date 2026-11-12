@@ -23,6 +23,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   line (`--pdf` overrides the line) and the inputs folder, where the PDF is
   archived with its script. Strict page checks fail before any audio is
   made. Needs the new `briefing` extra (pypdfium2) and ffmpeg with libx264.
+- **Briefings from Claude Desktop.** New connector tools
+  `inspect_briefing` (a PDF's page count and per-page text, flagging
+  scanned pages) and `validate_briefing` (the strict page checks, without
+  queueing). `queue_podcast` takes `pdf=<path>`, checks the script against
+  it, and queues a copy of the PDF. `podcast_status` and `list_podcasts`
+  report briefing videos.
 - **`--preview`** synthesizes one script and prints its timing without
   saving audio or archiving the script.
 
