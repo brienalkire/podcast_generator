@@ -37,7 +37,7 @@ A briefing needs two things: a PDF, and a script with page markers. One line in 
 
 ## Page 9
 
-Here is how to make one. Each step can be done by you, or by an AI assistant. First, a one-time setup: install the briefing extra, and make sure the free video tool F F M peg is available. Second, get a PDF. Export your own slides, or ask an assistant to make the deck. Third, write the narration, with a page marker before each page's text. You can write it yourself. An assistant with the connector can read each page of the PDF and write the narration for you. And if your narration is already in PowerPoint speaker notes, one command extracts it into a ready-made script. Fourth, convert it. Run the command, drop the script and the PDF into the watch folder together, or let the assistant queue it for you. Use the preview option to check the timing first.
+There are two ways to make one. The easiest is to ask your AI assistant for a narrated briefing video of a paper. The assistant builds the slides as a PDF, writes the narration for each page, and makes the video through the connector. Or you can build the pieces yourself. Export your slides to PDF, from PowerPoint for example. Write the narration, with a page marker before each page's text, or pull it from your speaker notes with one command. Then run the command, or drop the script and the PDF into the watch folder together. The preview option checks the timing first. Either way, there is a one-time setup: install the briefing extra, and make sure the free video tool F F M peg is available.
 
 ## Page 10
 
