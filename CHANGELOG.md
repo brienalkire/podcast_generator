@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-12
+
 ### Added
 
 - **Pronunciation lexicon.** Lines of `written form = spoken form` in
@@ -311,7 +313,8 @@ from a fresh history, so they have no tags or releases here.*
   those repos' own changelogs, not here — this file covers only
   `podcast_generator`.
 
-[Unreleased]: https://github.com/brienalkire/podcast_generator/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/brienalkire/podcast_generator/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/brienalkire/podcast_generator/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/brienalkire/podcast_generator/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/brienalkire/podcast_generator/compare/v0.3.5...v0.4.0
 [0.3.5]: https://github.com/brienalkire/podcast_generator/compare/v0.3.4...v0.3.5

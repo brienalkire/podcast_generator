@@ -131,7 +131,7 @@ it how to say them. It's a plain-text file with one entry per line:
 ```
 # Lines starting with # are comments.
 JADC2 = J A D C two
-RAND = rand
+SQL = sequel
 Kokoro = [Kokoro](/kˈOkəɹO/)
 ```
 

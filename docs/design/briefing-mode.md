@@ -1,4 +1,6 @@
-# podcast_generator: Briefing Mode (draft spec)
+# podcast_generator: Briefing Mode (design notes)
+
+*The design behind narrated briefings, released in 0.5.0. Kept as a record of the decisions; `MANUAL.md` describes how the feature works.*
 
 Status: draft, revised after review against the v0.4.1 source. Function, flag and folder names below refer to the current code unless marked as new.
 
@@ -180,11 +182,11 @@ Short user-facing how-to for Windows:
 
 Note: the notes-to-Word export and VBA macros also work but give poorer structure and are harder to share, so the utility is preferred.
 
-## 14. Open questions
+## 14. Questions settled during the build
 
-- Default silent hold (proposed 3 s) and inter-page pause lengths.
-- Whether 1920×1080 should be configurable, or follow the first page's aspect ratio.
-- Output folder: same outputs folder as podcasts (proposed), with `.mp4`, `.srt` and the metadata JSON side by side?
+- Silent hold 3 s; pause between pages 0.75 s.
+- Video is always 1920×1080, with pages letterboxed to fit. Not configurable in v1.
+- Output goes to the same outputs folder as podcasts, with the `.mp4`, `.srt` and `.briefing.json` side by side.
 
 ## 15. Implementation order
 
