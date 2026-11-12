@@ -331,13 +331,37 @@ def _speaker_label_pattern(speakers):
     )
 
 
-def _spoken_lines(raw_text, speakers=()):
+# A briefing script's page marker:  ## Page 3  or  ## Page 3 (skip). Any
+# header level works; the words are what's checked.
+page_marker_pattern = re.compile(r"^#{1,6}\s*Page\s+(\d+)\s*(\(\s*skip\s*\))?\s*$", re.IGNORECASE)
+# A header that was probably meant as a marker ("## Slide 3", "## Page three"),
+# refused in a briefing rather than silently dropped.
+near_page_marker_pattern = re.compile(r"^#{1,6}\s*(Page|Slide)\b", re.IGNORECASE)
+
+
+class PageMarker:
+    """A `## Page N` line, yielded by _spoken_lines(pages=True)."""
+
+    def __init__(self, number, skip=False):
+        self.number = number
+        self.skip = skip
+
+    def __repr__(self):
+        return f"PageMarker({self.number}{', skip' if self.skip else ''})"
+
+
+def _spoken_lines(raw_text, speakers=(), pages=False):
     """Yield (speaker, line) for each line of the script that is spoken.
 
     `speaker` is None for narration. With `speakers` (a dialogue script), a
     line starting with a speaker's label switches to that speaker, and the
     label itself is dropped; lines without a label continue the current
     speaker. Blank lines are yielded as "" so paragraph breaks survive.
+
+    With `pages` (a briefing script), a `## Page N` header is yielded as
+    (speaker, PageMarker) instead of being dropped, and a header that looks
+    like a mistyped marker raises ValueError. The speaker and the
+    end-of-script rule carry across markers, as in one long script.
     """
     # A metadata line looks like:  **Author:** Brien Alkire
     metadata_pattern = re.compile(r"^\s*\*\*[^*]+:\*\*")
@@ -374,6 +398,15 @@ def _spoken_lines(raw_text, speakers=()):
         # section labels (OPENING, PART ONE, CLOSING, etc.) are headers,
         # so this also removes the spoken-aloud section labels.
         if stripped.startswith("#"):
+            if pages:
+                marker = page_marker_pattern.match(stripped)
+                if marker:
+                    yield speaker, PageMarker(int(marker.group(1)), bool(marker.group(2)))
+                elif near_page_marker_pattern.match(stripped):
+                    raise ValueError(
+                        f"'{stripped}' isn't a page marker. Write it as "
+                        f"'## Page N' (or '## Page N (skip)'), with N the PDF "
+                        f"page number.")
             continue
 
         # Drop horizontal rules and bold section labels.
@@ -433,14 +466,112 @@ def split_turns(raw_text, speakers):
     Consecutive lines from the same speaker form one turn. None is the
     narrator, for any text before the first speaker label.
     """
+    return _group_turns(_spoken_lines(raw_text, speakers))
+
+
+def _group_turns(lines):
+    """Join (speaker, line) pairs into cleaned [(speaker, text), ...] turns."""
     turns = []
-    for speaker, line in _spoken_lines(raw_text, speakers):
+    for speaker, line in lines:
         if turns and turns[-1][0] == speaker:
             turns[-1][1].append(line)
         else:
             turns.append((speaker, [line]))
     cleaned = [(speaker, _clean_inline("\n".join(lines))) for speaker, lines in turns]
     return [(speaker, text) for speaker, text in cleaned if text]
+
+
+# Briefing timing: the pause after each page's narration before the next
+# page, the hold for a page with nothing to say, and the section length
+# (in words, about two minutes) that earns a "very long" warning.
+INTER_PAGE_PAUSE_SECONDS = 0.75
+SILENT_HOLD_SECONDS = 3.0
+LONG_SECTION_WORDS = 350
+
+
+def has_page_markers(raw_text):
+    """True if any line of the script is a `## Page N` marker."""
+    return any(page_marker_pattern.match(line.strip()) for line in raw_text.splitlines())
+
+
+def split_pages(raw_text, speakers=()):
+    """Split a briefing script into [(PageMarker, turns), ...] in script order.
+
+    `turns` is [(speaker or None, text), ...] as from split_turns(). Raises
+    ValueError for spoken text before the first marker or a mistyped
+    marker. Doesn't check the page numbers; see plan_pages().
+    """
+    sections = []
+    before_first = []
+    for speaker, line in _spoken_lines(raw_text, speakers, pages=True):
+        if isinstance(line, PageMarker):
+            sections.append((line, []))
+        elif sections:
+            sections[-1][1].append((speaker, line))
+        elif line.strip():
+            before_first.append(line.strip())
+    # With no markers at all, plan_pages() explains how to add them.
+    if before_first and sections:
+        raise ValueError(
+            f"text before the first '## Page N' marker has no page to be "
+            f"shown on: \"{before_first[0][:60]}\". Move it under a marker.")
+    return [(marker, _group_turns(lines)) for marker, lines in sections]
+
+
+def plan_pages(sections, page_count=None):
+    """Check a briefing's sections and return (pages, warnings).
+
+    `pages` is [(page number, turns), ...] for every page that's shown, in
+    order; empty `turns` means a silent hold. With `page_count` unknown
+    (None), pages run to the highest marker. Raises ValueError listing
+    every problem that stops the briefing: no markers, a page that doesn't
+    exist, or pages out of order or repeated.
+    """
+    if not sections:
+        known = f"The PDF has {page_count} pages. " if page_count else ""
+        raise ValueError(
+            f"no '## Page N' markers found. {known}Start each page's narration "
+            f"with a line like '## Page 1', numbered as in the PDF.")
+
+    errors, warnings = [], []
+    previous = 0
+    for marker, _ in sections:
+        n = marker.number
+        if n < 1 or (page_count and n > page_count):
+            errors.append(f"'## Page {n}': the PDF has pages 1 to {page_count}."
+                          if page_count else f"'## Page {n}': pages start at 1.")
+        elif n == previous:
+            errors.append(f"page {n} has two sections.")
+        elif n < previous:
+            errors.append(f"page {n} comes after page {previous}; "
+                          "sections must be in page order.")
+        previous = max(previous, n)
+    if errors:
+        raise ValueError("this briefing can't be converted:\n- " + "\n- ".join(errors))
+
+    by_page = {marker.number: (marker, turns) for marker, turns in sections}
+    last = page_count or max(by_page)
+    pages = []
+    for n in range(1, last + 1):
+        marker, turns = by_page.get(n, (None, []))
+        if marker and marker.skip:
+            if turns:
+                warnings.append(f"page {n} is marked (skip), so its text isn't spoken.")
+            continue
+        words = sum(len(text.split()) for _, text in turns)
+        if marker is None:
+            warnings.append(f"page {n} has no section; it's shown silently for "
+                            f"{SILENT_HOLD_SECONDS:g} s.")
+        elif not words:
+            warnings.append(f"page {n}'s section is empty; it's shown silently for "
+                            f"{SILENT_HOLD_SECONDS:g} s.")
+        elif words > LONG_SECTION_WORDS:
+            warnings.append(f"page {n}'s section is {words} words, a long time "
+                            "to show one page.")
+        pages.append((n, turns))
+    if not pages:
+        raise ValueError("every page is marked (skip), so there's nothing to show.")
+    return pages, warnings
 
 
 def spoken_text(raw_text):
@@ -674,49 +805,121 @@ def resolve_jobs(args):
     return jobs
 
 
-def process_job(engine, input_path, output_path, args):
-    """Convert a single script to audio. Raises on any failure."""
-    with open(input_path, "r", encoding="utf-8") as f:
-        raw_text = f.read()
+class ScriptVoices:
+    """What one script is read with: narrator, speakers, lexicon, CLI options."""
 
-    # In a dialogue script this is the narrator's voice, for any text before
-    # the first speaker label; --voice changes only that.
-    voice = resolve_voice(raw_text, args.voice)
-    speakers = resolve_speaker_voices(raw_text)
+    def __init__(self, raw_text, input_path, args):
+        # In a dialogue script this is the narrator's voice, for any text
+        # before the first speaker label; --voice changes only that.
+        self.voice = resolve_voice(raw_text, args.voice)
+        self.speakers = resolve_speaker_voices(raw_text)
+        self.lexicon = load_lexicon(raw_text, os.path.dirname(os.path.abspath(input_path)),
+                                    cli_lexicon=args.lexicon)
+        self.speed = args.speed
+        self.lang_code = args.lang_code
 
-    if speakers:
-        turns = split_turns(raw_text, speakers)
-    else:
-        turns = [(None, strip_markdown(raw_text))]
-    if not any(text.strip() for _, text in turns):
-        raise ValueError("no spoken text found after stripping the markdown.")
-    # After the markdown cleanup, so a phoneme override like
-    # [Kokoro](/kˈOkəɹO/) reaches Kokoro instead of being stripped as a link.
-    lexicon = load_lexicon(raw_text, os.path.dirname(os.path.abspath(input_path)),
-                           cli_lexicon=args.lexicon)
-    if lexicon:
-        turns = [(speaker, apply_lexicon(text, lexicon)) for speaker, text in turns]
-    if speakers:
-        cast = ", ".join(f"{name}={v}" for name, v in speakers.items())
-        print(f"Dialogue: {cast}; {len(turns)} turns.")
 
-    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+def synthesize_turns(engine, turns, voices):
+    """Speak [(speaker, text), ...] and return one audio array.
 
+    Each turn is read in its speaker's voice (the narrator's for None),
+    with a short pause between turns. The lexicon is applied here, after
+    the markdown cleanup, so a phoneme override like [Kokoro](/kˈOkəɹO/)
+    reaches Kokoro instead of being stripped as a link.
+    """
     import numpy as np
 
     pause = np.zeros(int(engine.sample_rate * TURN_PAUSE_SECONDS), dtype=np.float32)
     pieces = []
     for speaker, text in turns:
-        turn_voice = speakers[speaker] if speaker else voice
+        turn_voice = voices.speakers[speaker] if speaker else voices.voice
         # The accent code must match the voice; derive it from the voice's
         # first letter unless the caller pinned one with --lang.
-        lang_code = args.lang_code if args.lang_code else turn_voice[0]
+        lang_code = voices.lang_code if voices.lang_code else turn_voice[0]
         if pieces:
             pieces.append(pause)
-        pieces.append(engine.synthesize(text, turn_voice, speed=args.speed, lang_code=lang_code))
+        pieces.append(engine.synthesize(apply_lexicon(text, voices.lexicon), turn_voice,
+                                        speed=voices.speed, lang_code=lang_code))
+    return pieces[0] if len(pieces) == 1 else np.concatenate(pieces)
 
-    full_audio = pieces[0] if len(pieces) == 1 else np.concatenate(pieces)
+
+def process_job(engine, input_path, output_path, args):
+    """Convert a single script to audio. Raises on any failure."""
+    with open(input_path, "r", encoding="utf-8") as f:
+        raw_text = f.read()
+
+    voices = ScriptVoices(raw_text, input_path, args)
+    if voices.speakers:
+        turns = split_turns(raw_text, voices.speakers)
+    else:
+        turns = [(None, strip_markdown(raw_text))]
+    if not any(text.strip() for _, text in turns):
+        raise ValueError("no spoken text found after stripping the markdown.")
+    if voices.speakers:
+        cast = ", ".join(f"{name}={v}" for name, v in voices.speakers.items())
+        print(f"Dialogue: {cast}; {len(turns)} turns.")
+
+    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+    full_audio = synthesize_turns(engine, turns, voices)
     write_audio(full_audio, output_path, args.response_format, engine.sample_rate)
+
+
+def synthesize_pages(engine, pages, voices):
+    """Speak each planned page: [(page, audio or None, hold seconds), ...].
+
+    A page is held for its narration plus INTER_PAGE_PAUSE_SECONDS, or for
+    SILENT_HOLD_SECONDS when it has nothing to say (audio None).
+    """
+    results = []
+    for page, turns in pages:
+        if turns:
+            print(f"Page {page}...")
+            audio = synthesize_turns(engine, turns, voices)
+            hold = len(audio) / engine.sample_rate + INTER_PAGE_PAUSE_SECONDS
+        else:
+            audio, hold = None, SILENT_HOLD_SECONDS
+        results.append((page, audio, hold))
+    return results
+
+
+def _clock(seconds):
+    minutes, secs = divmod(int(round(seconds)), 60)
+    return f"{minutes}:{secs:02d}"
+
+
+def preview_job(engine, input_path, args):
+    """Synthesize a script without saving anything, and print its timing.
+
+    A briefing script (one with `## Page N` markers) gets one row per page;
+    any other script gets a single row. Raises on any failure.
+    """
+    with open(input_path, "r", encoding="utf-8") as f:
+        raw_text = f.read()
+    voices = ScriptVoices(raw_text, input_path, args)
+
+    if has_page_markers(raw_text):
+        pages, warnings = plan_pages(split_pages(raw_text, voices.speakers))
+        for warning in warnings:
+            print(f"Warning: {warning}")
+        timed = synthesize_pages(engine, pages, voices)
+        words = {page: sum(len(text.split()) for _, text in turns) for page, turns in pages}
+    else:
+        turns = (split_turns(raw_text, voices.speakers) if voices.speakers
+                 else [(None, strip_markdown(raw_text))])
+        if not any(text.strip() for _, text in turns):
+            raise ValueError("no spoken text found after stripping the markdown.")
+        audio = synthesize_turns(engine, turns, voices)
+        timed = [("-", audio, len(audio) / engine.sample_rate)]
+        words = {"-": sum(len(text.split()) for _, text in turns)}
+
+    print(f"\n{'Page':>4}  {'Words':>5}  {'Speech':>7}  {'Shown':>7}  {'Starts':>6}")
+    start = 0.0
+    for page, audio, hold in timed:
+        speech = f"{len(audio) / engine.sample_rate:6.1f}s" if audio is not None else "silent"
+        print(f"{page:>4}  {words[page]:>5}  {speech:>7}  {hold:6.1f}s  {_clock(start):>6}")
+        start += hold
+    shown = f"{len(timed)} page(s), " if has_page_markers(raw_text) else ""
+    print(f"Total: {shown}{_clock(start)}.")
 
 
 def parse_args(argv):
@@ -782,6 +985,13 @@ def parse_args(argv):
              "in the home folder and any script's **Lexicon:** file.",
     )
     parser.add_argument(
+        "--preview",
+        action="store_true",
+        help="Single-file mode only: synthesize the script and print its "
+             "timing (per page, for a briefing script with '## Page N' "
+             "markers) without saving audio or archiving the script.",
+    )
+    parser.add_argument(
         "--wait",
         action="store_true",
         help="If another conversion run is in progress, wait for it to "
@@ -838,6 +1048,10 @@ def main(argv):
 
 
 def run(args):
+    if args.preview and not args.input_path:
+        print("Error: --preview needs a script: podcast-generator SCRIPT.md --preview",
+              file=sys.stderr)
+        return 1
     if args.output and not args.input_path:
         print("Note: --output is ignored in batch mode; audio is written to "
               "the outputs folder using each script's name.", file=sys.stderr)
@@ -890,6 +1104,15 @@ def run(args):
     # KokoroDirectTTS caches its pipeline by language, so the model loads at
     # most once per accent used in the run.
     engine = KokoroDirectTTS()
+
+    if args.preview:
+        # Nothing is saved or archived, so a failure leaves the script alone.
+        try:
+            preview_job(engine, jobs[0][0], args)
+        except Exception as exc:  # noqa: BLE001
+            print(f"Error previewing {jobs[0][0]}: {exc}", file=sys.stderr)
+            return 1
+        return 0
 
     succeeded = []
     failed = []

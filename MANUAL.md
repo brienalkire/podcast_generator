@@ -166,6 +166,7 @@ podcast-generator [input_script.md] [options]
 | `--speed FLOAT` | Speaking rate multiplier (default `1.0`; `0.9` slower, `1.1` faster). |
 | `--format {mp3,wav}` | Output format (default `mp3`). |
 | `--output PATH` | Output file path. Only used in single-file mode; ignored in batch mode. |
+| `--preview` | Single-file mode only: synthesize the script and print how long it runs, without saving audio or archiving it. A script with `## Page N` markers gets one row per page. |
 | `--lexicon FILE` | Extra [pronunciation lexicon](#pronunciation-fixes-lexicon) for this run, on top of `lexicon.txt` and any script's `**Lexicon:**` file. |
 | `--wait` | If another conversion run is in progress, wait for it to finish (up to 2 hours) instead of exiting. |
 | `--version` | Print the installed version and exit. |

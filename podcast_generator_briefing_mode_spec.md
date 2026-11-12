@@ -54,12 +54,13 @@ The PDF reaches the server as a path on the local machine, not as uploaded bytes
 
 ## 5. Script contract
 
-- A section starts with a marker line: `## Page N` (N is the 1-based PDF page number).
+- A section starts with a marker line: `## Page N` (N is the 1-based PDF page number). Any header level works (`# Page 3`, `### Page 3`).
+- A header that looks like a mistyped marker (`## Slide 3`, `## Page three`, `## Page 3: Results`) is an error in a briefing, rather than being silently dropped as an ordinary header.
 - Sections must be in ascending page order.
 - Text under a marker is spoken over that page. Existing metadata lines (`**Voice:**`, `**Voices:**`, `**Lexicon:**`, `**Briefing:**`) and the end-of-script italic line behave as they do today. An end-of-script italic line ends the whole script, not just its section.
 - Text before the first marker is an error: there is no page to show it on.
 - Do not use `---` as a section separator (the cleaner strips it).
-- Optional: `## Page N (skip)` removes a page from the video. Pages with no section get a short silent hold (default 3 seconds, configurable), with a warning.
+- Optional: `## Page N (skip)` removes a page from the video (any text under it is not spoken, with a warning). Pages with no section get a short silent hold (default 3 seconds, configurable), with a warning.
 - Multi-speaker scripts work inside a section, using the existing `Name: text` convention. As today, an unlabelled line continues the current speaker, and this carries across page boundaries.
 
 ### Implementation note
@@ -76,7 +77,10 @@ The PDF reaches the server as a path on the local machine, not as uploaded bytes
 | Spoken text before the first marker | Fail. |
 | Empty section (marker with no spoken text, not `(skip)`) | Treat as a page with no section: warn, apply silent hold. |
 | Page with no section | Warn, apply silent hold. |
-| Section very long for one page | Warn (threshold configurable). |
+| Section very long for one page | Warn (over 350 words, `LONG_SECTION_WORDS`). |
+| Every page marked `(skip)` | Fail. |
+
+All errors are reported together, not just the first. With no markers at all, the "no markers" message wins over "text before the first marker".
 
 Auto-split was dropped: "section" is undefined without markers, and strict mode plus `inspect_briefing` and `extract-notes` cover the use case.
 
@@ -178,8 +182,8 @@ Note: the notes-to-Word export and VBA macros also work but give poorer structur
 
 ## 15. Implementation order
 
-1. Lexicon, including the phoneme-syntax check. Releasable on its own.
-2. Page-event parsing in `_spoken_lines` and the `synthesize_turns` refactor, with `--preview` showing the timing table. No ffmpeg or PDF needed to test.
+1. Lexicon, including the phoneme-syntax check. Releasable on its own. **Done.**
+2. Page-event parsing in `_spoken_lines` and the `synthesize_turns` refactor, with `--preview` showing the timing table. No ffmpeg or PDF needed to test. **Done:** `split_pages`, `plan_pages`, `synthesize_pages`, `preview_job`. Until step 3 there is no PDF, so `--preview` runs pages up to the highest marker; `plan_pages(page_count=...)` takes the PDF's count once it exists. Defaults chosen: 0.75 s between pages, 3 s silent hold. Note: Kokoro output is not bit-identical between runs, so audio regression tests compare call sequences, not bytes.
 3. Rasterizing, MP4 assembly, subtitles, the `**Briefing:**` line, and folder-watch support.
 4. MCP: `inspect_briefing`, `validate_briefing`, and `queue_podcast(pdf=...)`.
 5. `extract-notes`.

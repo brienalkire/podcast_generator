@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   case-sensitive. A spoken form can be an exact pronunciation in Kokoro's
   phoneme alphabet: `[Kokoro](/kˈOkəɹO/)`. `queue_podcast` checks a
   script's lexicon before queueing it.
+- **`--preview`** synthesizes one script and prints its timing without
+  saving audio or archiving the script.
 
 ### Fixed
 
